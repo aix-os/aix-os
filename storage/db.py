@@ -8,6 +8,10 @@ AIX OS — Хранилище блокчейна.
 
 ВАЖНО: сохраняем и цепочку блоков, и mempool (очередь транзакций).
 Иначе транзакции будут теряться между запусками CLI.
+
+ДОПОЛНИТЕЛЬНО: при загрузке автоочищаем mempool от stale-tx
+(тех, что уже вошли в цепочку). Это защита от ручных правок JSON
+и от багов синхронизации.
 """
 
 import json
@@ -46,7 +50,11 @@ class ChainStorage:
         os.replace(tmp_path, self.filepath)
 
     def load(self) -> Optional[Blockchain]:
-        """Загрузить цепочку с диска. Возвращает None, если файла нет."""
+        """
+        Загрузить цепочку с диска. Возвращает None, если файла нет.
+
+        Автоочистка: убираем из mempool всё, что уже вошло в цепочку.
+        """
         if not self.filepath.exists():
             return None
 
@@ -70,6 +78,18 @@ class ChainStorage:
                 chain.mempool.add(tx)
             except Exception as e:
                 print(f"⚠️  Не удалось восстановить транзакцию из mempool: {e}")
+
+        # ✅ Страховка: убираем из mempool всё, что уже в цепочке.
+        # Защищает от stale-tx после ручного редактирования data/*.json
+        # или от багов синхронизации.
+        included_ids = set()
+        for block in chain.chain:
+            for tx in block.transactions:
+                included_ids.add(tx.tx_id())
+        if included_ids:
+            removed = chain.mempool.remove_many(list(included_ids))
+            if removed:
+                print(f"ℹ️  Автоочистка mempool: удалено {removed} stale-tx")
 
         return chain
 

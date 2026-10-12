@@ -498,15 +498,48 @@ class PoCManager:
         return True, "уже актуален"
 
     def import_pool(self, data: dict) -> tuple:
+        """
+        Merge пула PoC.
+
+        ✅ ИСПРАВЛЕНО (баг #2):
+        Сравниваем И total_donated, И total_paid.
+        Иначе нода, у которой был donated, но не было paid,
+        не подтянет выплаты от соседа.
+
+        Дополнительно сливаем donations/payouts по уникальным ключам,
+        чтобы ничего не потерялось при частичной доставке событий.
+        """
         try:
             new_pool = RewardPool.from_dict(data)
         except Exception as e:
             return False, f"ошибка парсинга pool: {e}"
 
-        if new_pool.total_donated > self.pool.total_donated:
-            self.pool = new_pool
+        changed = False
+
+        # Сливаем донаты по (address, time)
+        existing_donations = {(d["address"], d["time"]) for d in self.pool.donations}
+        for d in new_pool.donations:
+            key = (d["address"], d["time"])
+            if key not in existing_donations:
+                self.pool.donations.append(d)
+                self.pool.total_donated += d["amount"]
+                existing_donations.add(key)
+                changed = True
+
+        # Сливаем выплаты по (address, contribution_id)
+        existing_payouts = {(p["address"], p["contribution_id"])
+                            for p in self.pool.payouts}
+        for p in new_pool.payouts:
+            key = (p["address"], p["contribution_id"])
+            if key not in existing_payouts:
+                self.pool.payouts.append(p)
+                self.pool.total_paid += p["amount"]
+                existing_payouts.add(key)
+                changed = True
+
+        if changed:
             self._save()
-            return True, "pool обновлён"
+            return True, "pool обновлён (merge)"
         return True, "pool актуален"
 
     # =========================================================================

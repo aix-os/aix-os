@@ -47,6 +47,13 @@ class Blockchain:
         return sum(2 ** self.difficulty for _ in self.chain)
 
     def replace_chain(self, new_chain: list, new_difficulty: int) -> tuple:
+        """
+        Заменить цепочку на более длинную/тяжёлую.
+
+        ВАЖНО: чистит mempool от транзакций, которые уже вошли в новую цепь,
+        и возвращает только осиротевшие (те, что были у нас, но нет в новой).
+        Без этой очистки в mempool висят stale-tx (баг #1).
+        """
         if len(new_chain) <= len(self.chain):
             return False, "Новая цепочка не длиннее текущей"
 
@@ -62,6 +69,7 @@ class Blockchain:
             self.difficulty = backup_difficulty
             return False, f"Новая цепочка невалидна: {msg}"
 
+        # Собираем tx, что были у нас и что теперь в новой цепи
         our_tx_ids = set()
         for b in backup_chain:
             for tx in b.transactions:
@@ -74,14 +82,22 @@ class Blockchain:
                 if tx.sender != "COINBASE":
                     new_tx_ids.add(tx.tx_id())
 
-        orphaned_ids = our_tx_ids - new_tx_ids
+        # ✅ ГЛАВНОЕ: чистим mempool от tx, что уже вошли в новую цепь
+        if new_tx_ids:
+            self.mempool.remove_many(list(new_tx_ids))
 
+        # Возвращаем в mempool только осиротевшие (нет в новой цепи)
+        orphaned_ids = our_tx_ids - new_tx_ids
         for b in backup_chain:
             for tx in b.transactions:
                 if tx.tx_id() in orphaned_ids:
                     self.mempool.add(tx)
 
-        return True, f"Цепочка заменена. Осиротевших: {len(orphaned_ids)}"
+        return True, (
+            f"Цепочка заменена. "
+            f"Из mempool удалено: {len(new_tx_ids)}, "
+            f"осиротевших: {len(orphaned_ids)}"
+        )
 
     def is_better_than(self, other: "Blockchain") -> bool:
         my_work = self.total_work()
