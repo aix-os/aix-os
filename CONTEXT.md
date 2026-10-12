@@ -29,19 +29,24 @@
 - **Ноды:**
   - A: порт 8010, файл `data/chain_A.json`
   - B: порт 8011, файл `data/chain_B.json`
+- **Mempool:** 0 на обеих нодах ✅
+- **PoC:** total_donated=150, total_paid=150 на обеих нодах ✅
+- **Chain OK:** ✅
 - **Майнер:** `AIXTYTXqm8WBFE6iX9UCFsp3qbF3VoKjAMxG8`
 - **Основатель:** `alice` (`AIXTA5WAvDBAifiZuYfwfxM57Ajn8kGcG6xj2`)
 - **Наследники:** `bob` (60%) + `carol` (40%) — DMS сработал (triggered)
-- **PoC:** 150 AIX внесли, 150 выплачено, 1 вклад в pending
 - **Swap:** 1 пул (AIX-SIM/USDT-SIM, 1000/500, LP=707.1)
 - **SBT:** 2 медали (FOUNDER у alice, EARLY_BIRD у bob)
 - **Burn:** 1 артефакт (COM-001, Уголёк #1)
 - **Contacts:** 1 хеш номера привязан к alice
+- **Последний коммит:** `e9f91fd`
+- **origin/main:** `e9f91fd`
+- **Chain B backup:** `data/chain_B.json.bak` (создан при фиксе)
 - **Последние фиксы:**
   - `chain.py::replace_chain()` — mempool cleanup
   - `poc.py::import_pool()` — merge по ключам
   - `storage/db.py::load()` — автоочистка stale-tx
-  - `scripts/fix_data.py` — одноразовый фикс данных
+  - `scripts/fix_data.py` — одноразовый фикс (отработал)
 
 ---
 
@@ -94,6 +99,7 @@
 - `reset_db.py` — сброс данных
 - `debug_lottery.py` — отладка лотереи
 - `fix_data.py` — одноразовый фикс (mempool + PoC)
+- `dump_for_ai.py` — сборка всех исходников в один файл
 
 ---
 
@@ -202,11 +208,15 @@ python cli/main.py node status
 - Патч `poc.py::import_pool()` — merge по ключам
 - Патч `storage/db.py::load()` — автоочистка stale-tx
 - Создан `scripts/fix_data.py`
+- Создан `scripts/dump_for_ai.py`
 - Создан `CONTEXT.md`
-
-**Открыто:**
-- Запустить `python scripts/fix_data.py`
-- Закоммитить изменения
+- `fix_data.py` отработал: удалено 1 stale-tx из `chain_B.json` (бэкап создан)
+- Ноды A и B синхронизированы: mempool=0, PoC paid=150
+- Закоммичено и запушено:
+  - `0000948` — 🐛 fix (mempool + PoC merge + автоочистка + CONTEXT.md)
+  - `e9f91fd` — 🔧 chore (dump_for_ai.py + .gitignore)
+- ⚠️ Был незавершённый rebase — прерван через `git rebase --abort`
+- 📌 Заметка на будущее: не делать `git push` во время активного rebase
 
 ### 2026-10-11 (сессия 2)
 Загрузка проекта, первый обзор.
