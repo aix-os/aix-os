@@ -1,7 +1,7 @@
 # 🧠 AIX OS — CONTEXT для AI-ассистента
 
-> **Как пользоваться:** в начале новой AI-сессии скинь этот файл целиком.
-> После работы — обнови блоки «Состояние» и «Журнал».
+> **Как пользоваться:** в начале новой AI-сессии скинь этот файл целиком
+> ПЛЮС вывод `python scripts/ai_brief.py` (это даст AI ещё и память).
 
 ---
 
@@ -26,197 +26,140 @@
 ## 2. Текущее состояние
 
 - **Высота цепочки:** 17
-- **Ноды:**
-  - A: порт 8010, файл `data/chain_A.json`
-  - B: порт 8011, файл `data/chain_B.json`
+- **Ноды:** A (8010, `chain_A.json`), B (8011, `chain_B.json`)
 - **Mempool:** 0 на обеих нодах ✅
 - **PoC:** total_donated=150, total_paid=150 на обеих нодах ✅
 - **Chain OK:** ✅
 - **Майнер:** `AIXTYTXqm8WBFE6iX9UCFsp3qbF3VoKjAMxG8`
 - **Основатель:** `alice` (`AIXTA5WAvDBAifiZuYfwfxM57Ajn8kGcG6xj2`)
-- **Наследники:** `bob` (60%) + `carol` (40%) — DMS сработал (triggered)
+- **Наследники:** `bob` (60%) + `carol` (40%) — DMS сработал
 - **Swap:** 1 пул (AIX-SIM/USDT-SIM, 1000/500, LP=707.1)
 - **SBT:** 2 медали (FOUNDER у alice, EARLY_BIRD у bob)
 - **Burn:** 1 артефакт (COM-001, Уголёк #1)
-- **Contacts:** 1 хеш номера привязан к alice
+- **Contacts:** 1 хеш номера у alice
 - **Последний коммит:** `e9f91fd`
 - **origin/main:** `e9f91fd`
-- **Chain B backup:** `data/chain_B.json.bak` (создан при фиксе)
-- **Последние фиксы:**
-  - `chain.py::replace_chain()` — mempool cleanup
-  - `poc.py::import_pool()` — merge по ключам
-  - `storage/db.py::load()` — автоочистка stale-tx
-  - `scripts/fix_data.py` — одноразовый фикс (отработал)
 
 ---
 
 ## 3. Карта файлов
 
-### 🔴 Ядро (не трогать без причины)
-- `config.py` — все константы проекта
-- `core/block.py` — блок, PoW, merkle
-- `core/chain.py` — цепочка, `add_block`, `replace_chain`, `get_balance`
-- `core/transaction.py` — tx, ECDSA-подпись, системные sender'ы
-- `core/mempool.py` — очередь tx
-- `core/wallet.py` — ключи, подпись
-- `storage/db.py` — ChainStorage (JSON + mempool + автоочистка)
+### 🔴 Ядро
+- `config.py` — все константы
+- `core/block.py`, `core/chain.py`, `core/transaction.py`,
+  `core/mempool.py`, `core/wallet.py`
+- `storage/db.py` — ChainStorage
 
 ### 🟡 Протоколы (`core/protocols/`)
-- `gift_link.py` — подарки по коду `AIX-XXXX-XXXX`
-- `time_lock.py` — капсулы до даты `unlock_at`
-- `sbt.py` — медали, репутация (common=1, uncommon=3, rare=10, legendary=50)
-- `lottery.py` — 1 из `LOTTERY_CHANCE` блоков даёт 100 AIX
-- `dead_mans_switch.py` — наследие, `timeout_days`, `check_in`, `trigger`
-- `aix_id.py` — `@имя` → адрес, профиль
-- `burn_to_mint.py` — 5 уровней артефактов (COMMON..MYTHIC)
-- `contacts.py` — хеш номера → адрес, `PHONE_SALT = "AIX-OS-PHONE-v1"`
-- `swap.py` — AMM, x*y=k, fee 0.3%, защита от опустошения (5% от initial)
-- `poc.py` — Proof of Contribution, уровни MICRO/SMALL/MEDIUM/LARGE
-- `state_sync.py` — экспорт/импорт состояния, `apply_event`, `make_*_event`
+- `gift_link.py`, `time_lock.py`, `sbt.py`, `lottery.py`,
+  `dead_mans_switch.py`, `aix_id.py`, `burn_to_mint.py`,
+  `contacts.py`, `swap.py`, `poc.py`, `state_sync.py`
+- 🆕 **`ai_memory.py`** — AI Memory (#AI-1)
 
 ### 🌐 Сеть
-- `network/server.py` — FastAPI, ~1761 строк, все эндпоинты
-- `network/peer.py` — клиент к другой ноде
-- `network/peer_manager.py` — реестр пиров
+- `network/server.py` (~1761 строк)
+- `network/peer.py`, `network/peer_manager.py`
 
 ### 💻 Интерфейсы
-- `cli/main.py` — CLI, ~2072 строки
-- `web/index.html` — Web Wallet, ~833 строки
-- `integrations/telegram/bot.py` — Telegram-бот
-- `mobile/flutter_app/lib/` — Flutter (7 экранов)
+- `cli/main.py` (~2072 строки)
+- `web/index.html` (~833 строки)
+- `integrations/telegram/bot.py`
+- `mobile/flutter_app/lib/` — 7 экранов
 
 ### 📜 Документы
 - `README.md`, `ROADMAP.md`, `docs/WHITEPAPER.md`
-- `docs/index.html` и `web/landing/index.html` — лендинг (дубли!)
+- `docs/index.html` + `web/landing/index.html` — лендинг (дубли)
 
 ### 🛠️ Скрипты (`scripts/`)
-- `run_all.ps1` — запуск 2 нод + web
-- `stop_all.ps1` — остановка
-- `backup.ps1` — бэкап data/
-- `mine_batch.ps1` — пакетный майнинг
-- `faucet.py` — раздача тестовых AIX
-- `init_genesis.py` — генезис с нуля
-- `reset_db.py` — сброс данных
-- `debug_lottery.py` — отладка лотереи
-- `fix_data.py` — одноразовый фикс (mempool + PoC)
-- `dump_for_ai.py` — сборка всех исходников в один файл
+- `run_all.ps1`, `stop_all.ps1`, `backup.ps1`, `mine_batch.ps1`
+- `faucet.py`, `init_genesis.py`, `reset_db.py`, `debug_lottery.py`
+- `fix_data.py` — одноразовый фикс
+- `dump_for_ai.py` — дамп всего проекта
+- 🆕 **`ai_remember.py`** — записать воспоминание
+- 🆕 **`ai_brief.py`** — собрать бриф для AI
 
 ---
 
-## 4. Известные баги (для истории)
+## 4. Ключевые решения (не менять!)
 
-### ✅ Баг #1 — Stale-tx в mempool (ИСПРАВЛЕНО)
-**Симптом:** tx `Alice→Bob 5 AIX` одновременно в блоке #11 и в mempool B.
-**Причина:** `chain.py::replace_chain()` не чистил mempool.
-**Фикс:** `self.mempool.remove_many(list(new_tx_ids))` в `replace_chain`.
-
-### ✅ Баг #2 — Рассинхрон PoC-пула (ИСПРАВЛЕНО)
-**Симптом:** `poc_8010.json` → `total_paid=150`, `poc_8011.json` → `total_paid=0`.
-**Причина:** `poc.py::import_pool()` сравнивал только `total_donated`.
-**Фикс:** merge по уникальным ключам (donations + payouts).
-
-### 🟡 Прочее
-- `tests/*` — 5 файлов по 0 байт. **Тестов нет.**
-- `core/consensus/*` (pow/pos/poc/dag) — пустые
-- `core/governance/*` (dao/constitution/public/veto) — пустые
-- `core/justice/*` (jury/appeals) — пустые
-- `crypto/zk`, `crypto/homomorphic`, `crypto/cold_storage`, `crypto/recovery` — пустые
-- `crypto/dilithium.py` — пустой (PQC)
-- `ai/*` — 14 папок пустые (ИИ пока не в ядре)
-- `apps/*` — arena, art, dating, dreams, radio, university, whisper — пустые
-- `network/mesh/*` — bluetooth.py, lora.py — пустые
-- `integrations/*` (кроме telegram) — banks, carbon, games, genome,
-  gosuslugi, green, health, iot, nfc, sbp — пустые
-- `web/app.js`, `web/styles.css` — пустые (вся логика в index.html)
-- `docs/ARCHITECTURE.md`, `TOKENOMICS.md`, `LEGAL.md`, `PRIVACY.md`,
-  `SECURITY.md`, `CONTACTS_PROTOCOL.md`, `AIX_OS_SPEC.md` — пустые
+| Что | Значение |
+|-----|----------|
+| Кривая | ECDSA secp256k1 |
+| Адрес | `AIX` + Base58Check(0x41 + hash160) |
+| Хеш | Двойной SHA-256 |
+| Награда | 50 AIX, халвинг 210k |
+| Майнер | `COINBASE` (системный) |
+| Сжигание | `recipient="BURN"` |
+| PoC фонд | `POC-POOL` (системный) |
+| Phone salt | `AIX-OS-PHONE-v1` (не менять!) |
+| AMM | x*y=k, fee 0.3%, min 5% |
+| PoC уровни | MICRO≤100(1), SMALL≤1000(2), MEDIUM≤5000(3), LARGE(5) |
 
 ---
 
-## 5. Ключевые решения (не менять!)
+## 5. ✅ Закрытые баги
 
-| Что | Значение | Почему |
-|-----|----------|--------|
-| Кривая | ECDSA secp256k1 | Как Bitcoin/Ethereum |
-| Адрес | `AIX` + Base58Check(version 0x41 + hash160) | Стандарт Bitcoin |
-| Хеш | Двойной SHA-256 | Защита от length-extension |
-| Награда за блок | 50 AIX, халвинг каждые 210k | Как Bitcoin |
-| Сложность | Пересчёт каждые 10 блоков, MAX=10 | MVP-ограничение |
-| Майнер | `COINBASE` (системный sender) | Как Bitcoin |
-| Сжигание | `recipient="BURN"` уменьшает supply | Для дефляции |
-| PoC фонд | `POC-POOL` (системный) | Как COINBASE |
-| Phone salt | `AIX-OS-PHONE-v1` | **Не менять!** Иначе хеши сломаются |
-| AMM | x*y=k, fee 0.3%, min 5% от initial | Как Uniswap V2 |
-| PoC уровни | MICRO≤100(1), SMALL≤1000(2), MEDIUM≤5000(3), LARGE(5) | Баланс |
+### Баг #1 — Stale-tx в mempool (закрыт)
+`chain.py::replace_chain()` чистит mempool от включённых tx.
+
+### Баг #2 — Рассинхрон PoC-пула (закрыт)
+`poc.py::import_pool()` merge по ключам.
+
+### Баг #3 — Незавершённый rebase (закрыт)
+`git rebase --abort` + `git reset --hard origin/main`.
 
 ---
 
-## 6. TODO (обновлять)
+## 6. TODO
 
 - [ ] Наполнить `core/governance/dao.py` — PoC → DAO с голосованием
-- [ ] Наполнить `ai/brain/` — локальная LLM (Ollama) для AIX-ассистента
-- [ ] Наполнить `crypto/zk/` — ZK-proofs для приватных tx
+- [ ] Наполнить `ai/brain/` — локальная LLM (Ollama)
+- [ ] Наполнить `crypto/zk/` — ZK-proofs
 - [ ] Наполнить `network/mesh/lora.py` — оффлайн-сеть
-- [ ] Написать тесты в `tests/` (block, chain, transaction, wallet, crypto)
-- [ ] Почистить репо: убрать `data_backup_*`, `web_backup/`,
-      `*.backup`, `project-tree.txt`, `alice_qr.png`
-- [ ] Обновить статистику на лендинге (229 файлов → актуально)
-- [ ] Исправить commit `b736970` (placeholder message)
-- [ ] Довести Flutter-приложение до Android APK
+- [ ] Написать тесты в `tests/`
+- [ ] Почистить репо: `data_backup_*`, `web_backup/`, `*.backup`
+- [ ] Обновить статистику на лендинге
+- [ ] Исправить commit `b736970`
+- [ ] Довести Flutter до Android APK
+- [ ] Добавить AI Memory в API (`network/server.py`)
+- [ ] Добавить AI Memory в CLI (`cli/main.py`)
+- [ ] Добавить AI Memory в Web Wallet
 
 ---
 
 ## 7. Как запускать
 
 ```powershell
-# Активировать venv
 .venv\Scripts\Activate.ps1
+.\scripts\run_all.ps1          # 2 ноды + web
+.\scripts\stop_all.ps1         # остановить
+python scripts/fix_data.py     # фикс данных
+python cli/main.py node status # статус ноды
 
-# Запустить сеть (2 ноды + web)
-.\scripts\run_all.ps1
-
-# Остановить всё
-.\scripts\stop_all.ps1
-
-# Бэкап
-.\scripts\backup.ps1 my_label
-
-# Пакетный майнинг
-.\scripts\mine_batch.ps1 alice 50
-
-# Починить данные после багов
-python scripts/fix_data.py
-
-# Статус ноды
-python cli/main.py node status
+# 🆕 AI Memory:
+python scripts/ai_remember.py "Заголовок" --kind=MILESTONE --priority=IMPORTANT
+python scripts/ai_brief.py > AI_BRIEF.md
 ```
 
-**Порты:**
-- Node A: `http://localhost:8010`
-- Node B: `http://localhost:8011`
-- Web Wallet: `http://localhost:9000`
-- Swagger: `http://localhost:8010/docs`
+**Порты:** A=8010, B=8011, Web=9000, Swagger=`http://localhost:8010/docs`
 
 ---
 
 ## 8. Журнал сессий
 
 ### 2026-10-12 (сессия 3)
-**Сделано:**
 - Полный dump проекта (217 файлов, 23 632 строки)
 - Патч `chain.py::replace_chain()` — mempool cleanup
 - Патч `poc.py::import_pool()` — merge по ключам
 - Патч `storage/db.py::load()` — автоочистка stale-tx
-- Создан `scripts/fix_data.py`
-- Создан `scripts/dump_for_ai.py`
-- Создан `CONTEXT.md`
-- `fix_data.py` отработал: удалено 1 stale-tx из `chain_B.json` (бэкап создан)
-- Ноды A и B синхронизированы: mempool=0, PoC paid=150
-- Закоммичено и запушено:
-  - `0000948` — 🐛 fix (mempool + PoC merge + автоочистка + CONTEXT.md)
-  - `e9f91fd` — 🔧 chore (dump_for_ai.py + .gitignore)
-- ⚠️ Был незавершённый rebase — прерван через `git rebase --abort`
-- 📌 Заметка на будущее: не делать `git push` во время активного rebase
+- Создан `scripts/fix_data.py`, `scripts/dump_for_ai.py`, `CONTEXT.md`
+- `fix_data.py` отработал: удалено 1 stale-tx из `chain_B.json`
+- Оба бага закрыты
+- Коммиты: `0000948` (fix) + `e9f91fd` (chore)
+- 🆕 **Создан AIX Memory** — память AI на блокчейне
+  - `core/protocols/ai_memory.py`
+  - `scripts/ai_remember.py`
+  - `scripts/ai_brief.py`
 
 ### 2026-10-11 (сессия 2)
 Загрузка проекта, первый обзор.
@@ -225,18 +168,20 @@ python cli/main.py node status
 
 ## 9. Правила работы с AI
 
-1. **В начале сессии** — скинуть `CONTEXT.md` + 3-5 горячих файлов.
-2. **В конце сессии** — обновить разделы 2, 6, 8.
-3. **Не показывать** AI файлы `*.wallet.json` (приватные ключи).
-4. **Патчи в `core/` и `crypto/`** — предупреждать явно.
-5. **Формат ответа AI** — целые файлы или точные пути, без кусков кода
-   (пользователь копирует файл целиком в редактор).
+1. В начале сессии — скинуть `CONTEXT.md` + `AI_BRIEF.md`
+2. В конце сессии — обновить разделы 2, 6, 8 + записать воспоминание:
+   ```powershell
+   python scripts/ai_remember.py "Что сделали" --kind=MILESTONE --priority=IMPORTANT
+   ```
+3. Не показывать AI файлы `*.wallet.json`
+4. Патчи в `core/` и `crypto/` — предупреждать явно
+5. Формат ответа AI — целые файлы или точные пути
 
 ---
 
 ## 10. Как обновлять этот файл
 
-После каждой сессии AI даёт блок:
+AI в конце сессии даёт блок:
 
 ```
 📝 ОБНОВЛЕНИЕ CONTEXT.md:
@@ -245,4 +190,9 @@ python cli/main.py node status
 [раздел 8] Журнал: <новая запись>
 ```
 
-Просто копируй в соответствующие места.
+Плюс записывает воспоминание:
+```powershell
+python scripts/ai_remember.py "Итог сессии" --kind=SESSION_END --priority=IMPORTANT
+```
+
+И следующая сессия начнётся с `ai_brief.py` — я всё вспомню.
