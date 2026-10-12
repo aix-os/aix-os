@@ -21,7 +21,7 @@ class Peer:
     is_alive: bool = False
     total_work: int = 0
 
-    def ping(self, timeout: float = 2.0) -> bool:
+    def ping(self, timeout: float = 5.0) -> bool:
         try:
             r = requests.get(f"{self.url}/status", timeout=timeout)
             if r.status_code == 200:

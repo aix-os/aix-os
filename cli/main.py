@@ -13,6 +13,11 @@ from core.block import Block
 from core.transaction import Transaction
 from storage.db import ChainStorage
 from crypto.address import is_valid_address
+from core.protocols.ai_memory import (
+    AIMemoryManager, KINDS as AI_KINDS, PRIORITIES as AI_PRIORITIES,
+    KIND_EMOJI, PRIORITY_EMOJI,
+)
+from core.governance.dao import DAOManager
 
 colorama_init(autoreset=True)
 storage = ChainStorage(config.CHAIN_DB_PATH)
@@ -1848,6 +1853,215 @@ def cmd_poc_leaderboard(a):
 
 
 # =============================================================================
+# AI MEMORY (#AI-1)
+# =============================================================================
+
+def _ai_memory_manager():
+    return AIMemoryManager(config.DATA_DIR / "ai_memory.json")
+
+
+def cmd_ai_remember(a):
+    mgr = _ai_memory_manager()
+    try:
+        mem = mgr.add(text=a.text, kind=a.kind, priority=a.priority,
+                      tags=a.tags, session=a.session, chain_ref=a.chain_ref or "")
+    except ValueError as e:
+        print(f"{Fore.RED}❌ {e}"); return 1
+    ke = KIND_EMOJI.get(mem.kind, "•")
+    pe = PRIORITY_EMOJI.get(mem.priority, "•")
+    print(f"{Fore.GREEN}✅ Записано: {ke} [{mem.kind}] {pe} {mem.priority}")
+    print(f"   {mem.text}")
+    print(f"   session={mem.session} ts={mem.ts} hash={mem.hash[:10]}")
+    print(f"   всего в памяти: {mgr.count()}")
+    return 0
+
+
+def cmd_ai_brief(a):
+    mgr = _ai_memory_manager()
+    text = mgr.brief(max_critical=a.critical, max_latest=a.latest)
+    if a.output:
+        Path(a.output).write_text(text, encoding="utf-8")
+        print(f"{Fore.GREEN}✅ Бриф записан: {a.output} ({len(text)} символов)")
+    else:
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+        print(text)
+    return 0
+
+
+def cmd_ai_stats(a):
+    mgr = _ai_memory_manager()
+    st = mgr.stats()
+    print(f"{Fore.CYAN}🧠 AI Memory — статистика")
+    print(f"   Всего:      {Fore.YELLOW}{st['total']}")
+    print(f"   Сессий:     {Fore.YELLOW}{st['sessions']}")
+    print(f"   По типам:   {st['by_kind']}")
+    print(f"   Приоритеты: {st['by_priority']}")
+    return 0
+
+
+def cmd_ai_list(a):
+    mgr = _ai_memory_manager()
+    if a.kind:
+        memories = mgr.by_kind(a.kind)
+    elif a.tag:
+        memories = mgr.by_tag(a.tag)
+    elif a.session:
+        memories = [m for m in mgr.all() if m.session == a.session]
+    else:
+        memories = mgr.latest(a.limit)
+    if not memories:
+        print(f"{Fore.YELLOW}Пусто"); return 0
+    rows = []
+    for m in memories:
+        ke = KIND_EMOJI.get(m.kind, "•")
+        pe = PRIORITY_EMOJI.get(m.priority, "•")
+        tags = ",".join(m.tags) if m.tags else ""
+        rows.append([ke, m.kind, pe, m.priority, m.text[:40], m.session, tags])
+    print(tabulate(rows, headers=["", "Kind", "", "Prio", "Text", "Session", "Tags"],
+                   tablefmt="rounded_outline"))
+    return 0
+
+# =============================================================================
+# DAO (#13)
+# =============================================================================
+
+def cmd_dao_stats(a):
+    url = _node_url(a)
+    d = _node_get(url, "/dao/stats")
+    if not d:
+        print(f"{Fore.RED}Node {url} not responding"); return 1
+    print(f"{Fore.CYAN}DAO -- statistics")
+    print(f"   Total:        {Fore.YELLOW}{d['total']}")
+    print(f"   Reputation:   {Fore.YELLOW}{d['total_reputation']}")
+    print(f"   Quorum:       {d['quorum_percent']}%")
+    print(f"   Pass:         >{d['pass_threshold']}%")
+    print(f"   Voting:       {d['voting_blocks']} blocks")
+    print(f"   Exec delay:   {d['execution_delay_blocks']} blocks")
+    if d.get("by_status"):
+        print(f"   By status:    {d['by_status']}")
+    return 0
+
+
+def cmd_dao_list(a):
+    url = _node_url(a)
+    d = _node_get(url, "/dao/all")
+    if not d:
+        print(f"{Fore.RED}Node {url} not responding"); return 1
+    print(f"{Fore.CYAN}DAO -- proposals: {len(d['proposals'])}")
+    if not d["proposals"]:
+        print(f"   {Fore.YELLOW}No proposals yet"); return 0
+    rows = []
+    for p in d["proposals"]:
+        rows.append([p["id"], p["kind"], p["status"],
+                     p["title"][:40],
+                     p["author"][:20] + "..."])
+    print(tabulate(rows, headers=["ID", "Kind", "Status", "Title", "Author"],
+                   tablefmt="rounded_outline"))
+    return 0
+
+
+def cmd_dao_show(a):
+    url = _node_url(a)
+    d = _node_get(url, f"/dao/{a.proposal_id}")
+    if not d:
+        print(f"{Fore.RED}Proposal not found"); return 1
+    print(f"{Fore.CYAN}DAO {d['id']}")
+    print(f"   Kind:      {d['kind']}")
+    print(f"   Status:    {Fore.YELLOW}{d['status']}")
+    print(f"   Author:    {d['author']}")
+    print(f"   Title:     {d['title']}")
+    print(f"   Desc:      {d['description'][:80]}")
+    yes_w = sum(v["weight"] for v in d["votes"].values() if v["choice"] == "yes")
+    no_w = sum(v["weight"] for v in d["votes"].values() if v["choice"] == "no")
+    print(f"   Yes/No:    {Fore.GREEN}{yes_w}{Fore.RESET} / {Fore.RED}{no_w}{Fore.RESET}")
+    print(f"   Votes:     {len(d['votes'])}")
+    print(f"   Voting end: block {d['voting_ends_at_height']}")
+    return 0
+
+
+def cmd_dao_create(a):
+    url = _node_url(a)
+    if not Wallet.exists(a.author):
+        print(f"{Fore.RED}Wallet {a.author} not found"); return 1
+    w = Wallet.load(a.author)
+    payload = {}
+    if a.kind.upper() == "SPEND":
+        if not a.contribution:
+            print(f"{Fore.RED}SPEND requires --contribution <id>"); return 1
+        payload["contribution_id"] = a.contribution
+    try:
+        r = requests.post(f"{url}/dao/create", json={
+            "author": w.address,
+            "title": a.title,
+            "description": a.description,
+            "kind": a.kind.upper(),
+            "payload": payload,
+        }, timeout=10)
+        if r.status_code != 200:
+            print(f"{Fore.RED}{r.json().get('detail', r.text)}"); return 1
+        d = r.json()
+    except requests.RequestException as e:
+        print(f"{Fore.RED}{e}"); return 1
+    print(f"{Fore.GREEN}Proposal created: {d['id']}")
+    print(f"   Title:      {d['title']}")
+    print(f"   Voting end: block {d['voting_ends_at_height']}")
+    print(f"\n   Vote: aix dao vote {d['id']} <wallet> yes|no")
+    return 0
+
+
+def cmd_dao_vote(a):
+    url = _node_url(a)
+    if not Wallet.exists(a.voter):
+        print(f"{Fore.RED}Wallet {a.voter} not found"); return 1
+    w = Wallet.load(a.voter)
+    try:
+        r = requests.post(f"{url}/dao/{a.proposal_id}/vote", json={
+            "voter": w.address,
+            "choice": a.choice,
+        }, timeout=10)
+        if r.status_code != 200:
+            print(f"{Fore.RED}{r.json().get('detail', r.text)}"); return 1
+        d = r.json()
+    except requests.RequestException as e:
+        print(f"{Fore.RED}{e}"); return 1
+    print(f"{Fore.GREEN}Vote accepted")
+    print(f"   Yes: {d['yes_weight']}, No: {d['no_weight']}, Votes: {d['votes_count']}")
+    return 0
+
+
+def cmd_dao_tally(a):
+    url = _node_url(a)
+    try:
+        r = requests.post(f"{url}/dao/{a.proposal_id}/tally", timeout=10)
+        if r.status_code != 200:
+            print(f"{Fore.RED}{r.json().get('detail', r.text)}"); return 1
+        d = r.json()
+    except requests.RequestException as e:
+        print(f"{Fore.RED}{e}"); return 1
+    print(f"{Fore.GREEN}Tallied: {d['proposal_status']}")
+    print(f"   Yes: {d['yes_weight']}, No: {d['no_weight']}")
+    return 0
+
+
+def cmd_dao_execute(a):
+    url = _node_url(a)
+    try:
+        r = requests.post(f"{url}/dao/{a.proposal_id}/execute", timeout=15)
+        if r.status_code != 200:
+            print(f"{Fore.RED}{r.json().get('detail', r.text)}"); return 1
+        d = r.json()
+    except requests.RequestException as e:
+        print(f"{Fore.RED}{e}"); return 1
+    print(f"{Fore.GREEN}Executed: {d['proposal_status']}")
+    if d.get("tx_id"):
+        print(f"   TX: {d['tx_id'][:32]}...")
+    return 0
+
+
+# =============================================================================
 # ГЛАВНАЯ
 # =============================================================================
 
@@ -2060,6 +2274,69 @@ def main():
     psub.add_parser("confirmed", help="Подтверждены, ждут выплаты").set_defaults(func=cmd_poc_confirmed)
     psub.add_parser("stats", help="Статистика").set_defaults(func=cmd_poc_stats)
     psub.add_parser("leaderboard", help="Топ контрибьюторов").set_defaults(func=cmd_poc_leaderboard)
+
+        # 🧠 ai — AI Memory (#AI-1)
+    pai = sub.add_parser("ai", help="🧠 AI Memory (#AI-1)")
+    asub = pai.add_subparsers(dest="ai_cmd", required=True)
+
+    ar = asub.add_parser("remember", help="Записать воспоминание")
+    ar.add_argument("text")
+    ar.add_argument("--kind", default="THOUGHT", choices=AI_KINDS)
+    ar.add_argument("--priority", default="NORMAL", choices=AI_PRIORITIES)
+    ar.add_argument("--tags", default="", help="через запятую: mempool,chain")
+    ar.add_argument("--session", default=None)
+    ar.add_argument("--chain-ref", dest="chain_ref", default="")
+    ar.set_defaults(func=cmd_ai_remember)
+
+    ab = asub.add_parser("brief", help="Собрать бриф")
+    ab.add_argument("--output", "-o", default=None)
+    ab.add_argument("--critical", type=int, default=10)
+    ab.add_argument("--latest", type=int, default=20)
+    ab.set_defaults(func=cmd_ai_brief)
+
+    asub.add_parser("stats", help="Статистика").set_defaults(func=cmd_ai_stats)
+
+    al = asub.add_parser("list", help="Список воспоминаний")
+    al.add_argument("--kind", default=None, choices=AI_KINDS)
+    al.add_argument("--tag", default=None)
+    al.add_argument("--session", default=None)
+    al.add_argument("--limit", "-n", type=int, default=20)
+    al.set_defaults(func=cmd_ai_list)
+
+    # DAO (#13)
+    pdao = sub.add_parser("dao", help="DAO (#13)")
+    pdao.add_argument("--node", default=DEFAULT_NODE)
+    dsub = pdao.add_subparsers(dest="dao_cmd", required=True)
+
+    dsub.add_parser("stats", help="Statistics").set_defaults(func=cmd_dao_stats)
+    dsub.add_parser("list", help="All proposals").set_defaults(func=cmd_dao_list)
+
+    dsh = dsub.add_parser("show", help="Show proposal")
+    dsh.add_argument("proposal_id")
+    dsh.set_defaults(func=cmd_dao_show)
+
+    dcr = dsub.add_parser("create", help="Create proposal")
+    dcr.add_argument("author", help="Wallet name")
+    dcr.add_argument("title")
+    dcr.add_argument("description")
+    dcr.add_argument("--kind", default="TEXT", choices=["TEXT", "SPEND"])
+    dcr.add_argument("--contribution", default=None,
+                     help="For SPEND: contribution_id")
+    dcr.set_defaults(func=cmd_dao_create)
+
+    dv = dsub.add_parser("vote", help="Vote")
+    dv.add_argument("proposal_id")
+    dv.add_argument("voter", help="Wallet name")
+    dv.add_argument("choice", choices=["yes", "no"])
+    dv.set_defaults(func=cmd_dao_vote)
+
+    dt = dsub.add_parser("tally", help="Finalize voting")
+    dt.add_argument("proposal_id")
+    dt.set_defaults(func=cmd_dao_tally)
+
+    de = dsub.add_parser("execute", help="Execute passed proposal")
+    de.add_argument("proposal_id")
+    de.set_defaults(func=cmd_dao_execute)
 
     args = p.parse_args()
     return args.func(args)

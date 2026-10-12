@@ -47,8 +47,13 @@ from core.protocols.state_sync import (
     make_inheritance_event, make_id_event, make_burn_event, make_contact_event,
     make_swap_event, make_poc_event, make_poc_pool_event,
 )
+from core.protocols.ai_memory import (
+    AIMemoryManager, KINDS as AI_KINDS, PRIORITIES as AI_PRIORITIES,
+    KIND_EMOJI, PRIORITY_EMOJI,
+)
 from storage.db import ChainStorage
 from network.peer_manager import PeerManager
+from core.governance.dao import DAOManager
 
 
 class SendRequest(BaseModel):
@@ -226,6 +231,30 @@ class PoCRejectRequest(BaseModel):
 
 class PoCPayRequest(BaseModel):
     contribution_id: str
+class AIRememberRequest(BaseModel):
+    text: str
+    kind: str = "THOUGHT"
+    priority: str = "NORMAL"
+    tags: list[str] = []
+    session: str = ""
+    chain_ref: str = ""
+
+
+class DAOCreateRequest(BaseModel):
+    author: str
+    title: str
+    description: str
+    kind: str = "TEXT"
+    payload: dict = {}
+
+
+class DAOVoteRequest(BaseModel):
+    voter: str
+    choice: str  # yes | no
+
+
+class DAOCancelRequest(BaseModel):
+    by: str
 
 
 SYNC_INTERVAL = 5.0
@@ -234,7 +263,7 @@ async def background_sync(blockchain, storage, peer_manager, port):
     while True:
         try:
             await asyncio.sleep(SYNC_INTERVAL)
-            peer_manager.ping_all()
+            await asyncio.to_thread(peer_manager.ping_all)
             best = peer_manager.best_peer()
             if best is None:
                 continue
@@ -242,7 +271,7 @@ async def background_sync(blockchain, storage, peer_manager, port):
             our_work = blockchain.total_work()
             if best.height <= blockchain.height() and their_work <= our_work:
                 continue
-            chain_data = best.get_chain()
+            chain_data = await asyncio.to_thread(best.get_chain)
             if chain_data is None:
                 continue
             try:
@@ -288,6 +317,11 @@ def create_app(port: int, data_file: str, self_url: str,
     contacts_manager = ContactsManager(contacts_file, blockchain=blockchain)
     swap_manager = SwapManager(swap_file, blockchain=blockchain)
     poc_manager = PoCManager(poc_file, blockchain=blockchain)
+    ai_memory_path = Path(data_file).parent / "ai_memory.json"
+    ai_memory = AIMemoryManager(ai_memory_path)
+
+    dao_path = Path(data_file).parent / f"dao_{port}.json"
+    dao_manager = DAOManager(dao_path, blockchain=blockchain, sbt_manager=sbt_manager, poc_manager=poc_manager)
 
     def total_locked(address: str) -> int:
         return (gift_manager.locked_balance(address)
@@ -316,7 +350,7 @@ def create_app(port: int, data_file: str, self_url: str,
                                      timelock_manager, sbt_manager,
                                      inheritance_manager, id_manager,
                                      burn_manager, contacts_manager,
-                                     swap_manager, poc_manager)
+                                     swap_manager, poc_manager, dao_manager)
                 for k in total_added:
                     total_added[k] += stats["added"].get(k, 0)
             except Exception as e:
@@ -340,6 +374,8 @@ def create_app(port: int, data_file: str, self_url: str,
         print(f"[{port}] Contacts: {len(contacts_manager)}")
         print(f"[{port}] Swap: {len(swap_manager)} pools")
         print(f"[{port}] PoC: {len(poc_manager)} contributions, pool={poc_manager.pool.balance_aix():.2f} AIX")
+        print(f"[{port}] AI Memory: {ai_memory.count()} записей")
+        print(f"[{port}] DAO: {len(dao_manager)} proposals")
         if pulled.get("added"):
             a = pulled["added"]
             print(f"[{port}] State: +{a.get('gifts', 0)} gifts, "
@@ -350,6 +386,7 @@ def create_app(port: int, data_file: str, self_url: str,
                   f"+{a.get('burn_artifacts', 0)} artifacts, "
                   f"+{a.get('contacts', 0)} contacts, "
                   f"+{a.get('swap_pools', 0)} swap_pools, "
+                 f"+{a.get('dao_proposals', 0)} dao, "
                   f"+{a.get('poc_contributions', 0)} poc_contributions")
         yield
         task.cancel()
@@ -429,6 +466,8 @@ def create_app(port: int, data_file: str, self_url: str,
             "swap_pools_count": len(swap_manager),
             "poc_count": len(poc_manager),
             "poc_pool_aix": poc_manager.pool.balance_aix(),
+            "ai_memory_count": ai_memory.count(),
+            "dao_count": len(dao_manager),
         }
 
     @app.get("/chain")
@@ -1542,6 +1581,170 @@ def create_app(port: int, data_file: str, self_url: str,
                 "tx_id": msg,
                 "pool_balance_aix": poc_manager.pool.balance_aix()}
 
+       # =========================================================================
+    # AI MEMORY (#AI-1)
+    # =========================================================================
+
+    @app.get("/ai/memory")
+    def ai_memory_brief(max_critical: int = 10, max_latest: int = 20):
+        return {
+            "count": ai_memory.count(),
+            "sessions": ai_memory.sessions(),
+            "brief": ai_memory.brief(max_critical=max_critical, max_latest=max_latest),
+            "stats": ai_memory.stats(),
+        }
+
+    @app.get("/ai/memory/stats")
+    def ai_memory_stats():
+        return ai_memory.stats()
+
+    @app.get("/ai/memory/latest")
+    def ai_memory_latest(n: int = 20):
+        return {"count": n, "memories": [m.to_dict() for m in ai_memory.latest(n)]}
+
+    @app.get("/ai/memory/critical")
+    def ai_memory_critical(n: int = 10):
+        return {"count": n, "memories": [m.to_dict() for m in ai_memory.critical(n)]}
+
+    @app.get("/ai/memory/session/{session}")
+    def ai_memory_by_session(session: str):
+        memories = [m for m in ai_memory.all() if m.session == session]
+        return {"session": session, "count": len(memories),
+                "memories": [m.to_dict() for m in memories]}
+
+    @app.get("/ai/memory/tag/{tag}")
+    def ai_memory_by_tag(tag: str):
+        memories = ai_memory.by_tag(tag)
+        return {"tag": tag, "count": len(memories),
+                "memories": [m.to_dict() for m in memories]}
+
+    @app.get("/ai/memory/kind/{kind}")
+    def ai_memory_by_kind(kind: str):
+        memories = ai_memory.by_kind(kind)
+        return {"kind": kind.upper(), "count": len(memories),
+                "memories": [m.to_dict() for m in memories]}
+
+    @app.post("/ai/remember")
+    def ai_remember(req: AIRememberRequest):
+        try:
+            mem = ai_memory.add(
+                text=req.text, kind=req.kind, priority=req.priority,
+                tags=req.tags, session=req.session or None,
+                chain_ref=req.chain_ref,
+            )
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {
+            "status": "stored",
+            "id": mem.hash[:12],
+            "kind": mem.kind,
+            "priority": mem.priority,
+            "session": mem.session,
+            "ts": mem.ts,
+            "text": mem.text,
+            "total": ai_memory.count(),
+        }
+
+
+    # =========================================================================
+    # DAO (#13)
+    # =========================================================================
+
+    @app.get("/dao/stats")
+    def dao_stats():
+        return dao_manager.stats()
+
+    @app.get("/dao/all")
+    def dao_all(limit: int = 50):
+        items = dao_manager.list_all(limit)
+        return {"count": len(items), "proposals": [p.to_dict() for p in items]}
+
+    @app.get("/dao/status/{status}")
+    def dao_by_status(status: str):
+        proposals = dao_manager.list_by_status(status)
+        return {"status": status, "count": len(proposals),
+                "proposals": [p.to_dict() for p in proposals]}
+
+    @app.get("/dao/author/{address}")
+    def dao_by_author(address: str):
+        addr = resolve_who(address)
+        proposals = dao_manager.list_by_author(addr)
+        return {"author": addr, "count": len(proposals),
+                "proposals": [p.to_dict() for p in proposals]}
+
+    @app.get("/dao/{proposal_id}")
+    def dao_info(proposal_id: str):
+        p = dao_manager.get(proposal_id)
+        if p is None:
+            raise HTTPException(404, "Proposal not found")
+        return p.to_dict()
+
+    @app.post("/dao/create")
+    def dao_create(req: DAOCreateRequest):
+        author = resolve_who(req.author)
+        ok, result = dao_manager.create_proposal(
+            author=author,
+            title=req.title,
+            description=req.description,
+            kind=req.kind,
+            payload=req.payload,
+        )
+        if not ok:
+            raise HTTPException(400, result)
+        p = dao_manager.get(result)
+        peer_manager.broadcast_state_event({"kind": "dao_proposal", "data": p.to_dict()})
+        return {"status": "created", "id": p.id, "author": p.author,
+                "kind": p.kind, "title": p.title,
+                "voting_ends_at_height": p.voting_ends_at_height}
+
+    @app.post("/dao/{proposal_id}/vote")
+    def dao_vote(proposal_id: str, req: DAOVoteRequest):
+        voter = resolve_who(req.voter)
+        ok, msg = dao_manager.vote(proposal_id, voter, req.choice)
+        if not ok:
+            raise HTTPException(400, msg)
+        p = dao_manager.get(proposal_id)
+        peer_manager.broadcast_state_event({"kind": "dao_proposal", "data": p.to_dict()})
+        return {"status": "voted", "id": proposal_id,
+                "yes_weight": p.yes_weight(),
+                "no_weight": p.no_weight(),
+                "votes_count": p.votes_count(),
+                "message": msg}
+
+    @app.post("/dao/{proposal_id}/tally")
+    def dao_tally(proposal_id: str):
+        ok, msg = dao_manager.tally(proposal_id)
+        if not ok:
+            raise HTTPException(400, msg)
+        p = dao_manager.get(proposal_id)
+        peer_manager.broadcast_state_event({"kind": "dao_proposal", "data": p.to_dict()})
+        return {"status": "tallied", "id": proposal_id,
+                "proposal_status": p.status,
+                "yes_weight": p.yes_weight(),
+                "no_weight": p.no_weight()}
+
+    @app.post("/dao/{proposal_id}/execute")
+    def dao_execute(proposal_id: str):
+        ok, msg = dao_manager.execute(proposal_id)
+        if not ok:
+            raise HTTPException(400, msg)
+        p = dao_manager.get(proposal_id)
+        peer_manager.broadcast_state_event({"kind": "dao_proposal", "data": p.to_dict()})
+        return {"status": "executed", "id": proposal_id,
+                "proposal_status": p.status,
+                "tx_id": p.executed_tx_id,
+                "message": msg}
+
+    @app.post("/dao/{proposal_id}/cancel")
+    def dao_cancel(proposal_id: str, req: DAOCancelRequest):
+        by = resolve_who(req.by)
+        ok, msg = dao_manager.cancel(proposal_id, by)
+        if not ok:
+            raise HTTPException(400, msg)
+        p = dao_manager.get(proposal_id)
+        peer_manager.broadcast_state_event({"kind": "dao_proposal", "data": p.to_dict()})
+        return {"status": "cancelled", "id": proposal_id}
+
     # =========================================================================
     # P2P
     # =========================================================================
@@ -1642,7 +1845,7 @@ def create_app(port: int, data_file: str, self_url: str,
     def sync_state():
         return export_state(gift_manager, timelock_manager, sbt_manager,
                             inheritance_manager, id_manager, burn_manager,
-                            contacts_manager, swap_manager, poc_manager)
+                            contacts_manager, swap_manager, poc_manager, dao_manager)
 
     @app.post("/sync/state/event")
     def sync_state_event(req: SyncStateEventRequest):
@@ -1650,7 +1853,7 @@ def create_app(port: int, data_file: str, self_url: str,
                               timelock_manager, sbt_manager,
                               inheritance_manager, id_manager,
                               burn_manager, contacts_manager,
-                              swap_manager, poc_manager)
+                              swap_manager, poc_manager, dao_manager)
         if not ok:
             raise HTTPException(400, msg)
         sender_url = req.from_peer.rstrip("/") if req.from_peer else None
@@ -1683,7 +1886,7 @@ def create_app(port: int, data_file: str, self_url: str,
                                      timelock_manager, sbt_manager,
                                      inheritance_manager, id_manager,
                                      burn_manager, contacts_manager,
-                                     swap_manager, poc_manager)
+                                     swap_manager, poc_manager, dao_manager)
                 for k in total_added:
                     total_added[k] += stats["added"].get(k, 0)
             except Exception as e:

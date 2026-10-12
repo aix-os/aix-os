@@ -1,366 +1,255 @@
-"""
-AIX OS — AI Memory (#AI-1).
+"""AIX OS — AI Memory (#AI-1).
 
-Память AI на блокчейне.
-
-Идея: ИИ — душа AIX OS. И у него должна быть память.
-Каждое важное событие в жизни проекта записывается как "воспоминание":
-- Сессия начата/завершена
-- Milestone достигнут
-- Баг найден/исправлен
-- Принято решение
-- Что-то новое изучено
-
-Зачем:
-- AI не забывает между сессиями (CONTEXT + Memory)
-- История проекта в структурированном виде
-- Прозрачность для сообщества: что AI делал и почему
-- Мета-фича: AI пишет сам о себе
-
-Хранение: data/ai_memory.json
+Память AI-ассистента. Каждое важное событие — структурированное воспоминание.
+Хранится в data/ai_memory.json (атомарная запись + .bak).
 """
 
+from __future__ import annotations
+
+import hashlib
 import json
-import random
-import sys
-import time
+import os
+import tempfile
 from dataclasses import dataclass, field, asdict
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-import config
+from typing import Iterable, Optional
 
 
-ID_PREFIX = "MEM"
-ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+KINDS = (
+    "SESSION_START", "SESSION_END", "MILESTONE", "BUG_FIXED",
+    "DECISION", "LEARNING", "IDEA", "THOUGHT",
+)
+PRIORITIES = ("CRITICAL", "IMPORTANT", "NORMAL", "EPHEMERAL")
+PRIORITY_ORDER = {p: i for i, p in enumerate(PRIORITIES)}
 
-KINDS = {
-    "SESSION_START": {"emoji": "🚀", "title": "Начало сессии"},
-    "SESSION_END":   {"emoji": "🏁", "title": "Конец сессии"},
-    "MILESTONE":     {"emoji": "🏆", "title": "Milestone"},
-    "BUG_FOUND":     {"emoji": "🐛", "title": "Найден баг"},
-    "BUG_FIXED":     {"emoji": "🔧", "title": "Баг исправлен"},
-    "DECISION":      {"emoji": "⚖️", "title": "Принято решение"},
-    "LEARNING":      {"emoji": "📚", "title": "Урок"},
-    "IDEA":          {"emoji": "💡", "title": "Идея"},
-    "THOUGHT":       {"emoji": "💭", "title": "Мысль"},
+KIND_EMOJI = {
+    "SESSION_START": "🚀", "SESSION_END": "🏁", "MILESTONE": "🏆",
+    "BUG_FIXED": "🐛", "DECISION": "⚖️", "LEARNING": "📚",
+    "IDEA": "💡", "THOUGHT": "💭",
 }
-
-PRIORITIES = {
-    "CRITICAL":  {"weight": 100, "emoji": "🔴"},
-    "IMPORTANT": {"weight": 50,  "emoji": "🟡"},
-    "NORMAL":    {"weight": 10,  "emoji": "🟢"},
-    "EPHEMERAL": {"weight": 1,   "emoji": "⚪"},
+PRIORITY_EMOJI = {
+    "CRITICAL": "🔴", "IMPORTANT": "🟠", "NORMAL": "🟡", "EPHEMERAL": "⚪",
 }
-
-AIX_CORE = "AIX-CORE"
-
-
-def generate_id() -> str:
-    p1 = "".join(random.choices(ID_ALPHABET, k=4))
-    p2 = "".join(random.choices(ID_ALPHABET, k=4))
-    return f"{ID_PREFIX}-{p1}-{p2}"
 
 
 @dataclass
 class Memory:
-    """Одно воспоминание AI."""
-    id: str
-    session_id: str
-    kind: str
-    priority: str
-    title: str
-    body: str = ""
+    text: str
+    kind: str = "THOUGHT"
+    priority: str = "NORMAL"
     tags: list = field(default_factory=list)
-    related_tx: str = ""
-    related_block: int = -1
-    created_at: float = 0.0
-    created_by: str = AIX_CORE
-
-    def emoji(self) -> str:
-        return KINDS.get(self.kind, {}).get("emoji", "📌")
-
-    def kind_title(self) -> str:
-        return KINDS.get(self.kind, {}).get("title", self.kind)
-
-    def priority_emoji(self) -> str:
-        return PRIORITIES.get(self.priority, {}).get("emoji", "⚪")
-
-    def weight(self) -> int:
-        return PRIORITIES.get(self.priority, {}).get("weight", 1)
+    session: str = ""
+    ts: str = ""
+    hash: str = ""
+    chain_ref: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Memory":
-        return cls(**data)
+    def from_dict(cls, d: dict) -> "Memory":
+        return cls(
+            text=d.get("text", ""),
+            kind=d.get("kind", "THOUGHT"),
+            priority=d.get("priority", "NORMAL"),
+            tags=list(d.get("tags", [])),
+            session=d.get("session", ""),
+            ts=d.get("ts", ""),
+            hash=d.get("hash", ""),
+            chain_ref=d.get("chain_ref", ""),
+        )
 
-    def __repr__(self):
-        return f"Memory({self.id}, {self.kind}, {self.priority}, {self.title[:30]})"
+    def compute_hash(self) -> str:
+        payload = json.dumps(
+            {"text": self.text, "kind": self.kind, "priority": self.priority,
+             "tags": self.tags, "session": self.session, "ts": self.ts},
+            ensure_ascii=False, sort_keys=True,
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _current_session() -> str:
+    return os.environ.get("AIX_SESSION") or datetime.now().strftime("%Y-%m-%d-session")
 
 
 class AIMemoryManager:
-    """Менеджер памяти AI. Локальный для ноды."""
+    """JSON-хранитель памяти AI."""
 
-    def __init__(self, storage_path):
-        self.storage_path = Path(storage_path)
-        self.memories: list[Memory] = []
+    def __init__(self, path):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._memories: list[Memory] = []
         self._load()
 
-    def _load(self):
-        if not self.storage_path.exists():
+    # ---------- IO ----------
+
+    def _load(self) -> None:
+        if not self.path.exists():
+            self._memories = []
             return
         try:
-            with open(self.storage_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            for item in data.get("memories", []):
-                self.memories.append(Memory.from_dict(item))
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"WARN: не удалось загрузить AI Memory: {e}")
+            with open(self.path, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            bak = self.path.with_suffix(self.path.suffix + ".bak")
+            if bak.exists():
+                with open(bak, "r", encoding="utf-8") as f:
+                    raw = json.load(f)
+            else:
+                raw = {"memories": []}
 
-    def _save(self):
-        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.storage_path.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(
-                {"memories": [m.to_dict() for m in self.memories]},
-                f, ensure_ascii=False, indent=2,
-            )
-        tmp.replace(self.storage_path)
+        items = raw if isinstance(raw, list) else raw.get("memories", [])
+        self._memories = [Memory.from_dict(x) for x in items]
 
-    # =========================================================================
-    # ЗАПИСЬ
-    # =========================================================================
+    def _save(self) -> None:
+        data = {"memories": [m.to_dict() for m in self._memories]}
+        payload = json.dumps(data, ensure_ascii=False, indent=2)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=str(self.path.parent),
+                                   prefix=".ai_memory_", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(payload)
+            if self.path.exists():
+                bak = self.path.with_suffix(self.path.suffix + ".bak")
+                try:
+                    bak.write_text(self.path.read_text(encoding="utf-8"),
+                                   encoding="utf-8")
+                except OSError:
+                    pass
+            os.replace(tmp, self.path)
+        finally:
+            if os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
 
-    def remember(
-        self,
-        title: str,
-        body: str = "",
-        kind: str = "THOUGHT",
-        priority: str = "NORMAL",
-        tags: Optional[list] = None,
-        session_id: str = "",
-        related_tx: str = "",
-        related_block: int = -1,
-    ) -> Memory:
-        """Записать воспоминание."""
+    # ---------- API ----------
+
+    def add(self, text: str, kind: str = "THOUGHT", priority: str = "NORMAL",
+            tags: Optional[Iterable[str]] = None, session: Optional[str] = None,
+            chain_ref: str = "") -> Memory:
+        kind = (kind or "THOUGHT").upper()
+        priority = (priority or "NORMAL").upper()
         if kind not in KINDS:
-            raise ValueError(f"Неизвестный kind '{kind}'. Доступные: {', '.join(KINDS.keys())}")
+            raise ValueError(f"Неизвестный kind: {kind}. Доступно: {KINDS}")
         if priority not in PRIORITIES:
-            raise ValueError(f"Неизвестный priority '{priority}'. Доступные: {', '.join(PRIORITIES.keys())}")
+            raise ValueError(f"Неизвестный priority: {priority}. Доступно: {PRIORITIES}")
 
-        if not session_id:
-            session_id = time.strftime("%Y-%m-%d")
-
-        for _ in range(10):
-            mid = generate_id()
-            if not any(m.id == mid for m in self.memories):
-                break
+        if tags is None:
+            tags_list: list[str] = []
+        elif isinstance(tags, str):
+            tags_list = [t.strip() for t in tags.split(",") if t.strip()]
         else:
-            raise RuntimeError("Не удалось сгенерировать ID")
+            tags_list = [str(t).strip() for t in tags if str(t).strip()]
 
         mem = Memory(
-            id=mid,
-            session_id=session_id,
-            kind=kind,
-            priority=priority,
-            title=title,
-            body=body,
-            tags=tags or [],
-            related_tx=related_tx,
-            related_block=related_block,
-            created_at=time.time(),
+            text=text.strip(), kind=kind, priority=priority, tags=tags_list,
+            session=session or _current_session(), ts=_now_iso(),
+            chain_ref=chain_ref,
         )
-        self.memories.append(mem)
+        mem.hash = mem.compute_hash()
+
+        for existing in self._memories:
+            if existing.hash == mem.hash:
+                return existing  # дедуп
+
+        self._memories.append(mem)
         self._save()
         return mem
 
-    def import_memory(self, data: dict) -> tuple:
-        """Импорт воспоминания из внешнего источника (для sync)."""
-        try:
-            mem = Memory.from_dict(data)
-        except Exception as e:
-            return False, f"ошибка парсинга: {e}"
+    def all(self) -> list[Memory]:
+        return list(self._memories)
 
-        if any(m.id == mem.id for m in self.memories):
-            return True, "уже есть"
-
-        self.memories.append(mem)
-        self._save()
-        return True, "добавлен"
-
-    # =========================================================================
-    # ЧТЕНИЕ
-    # =========================================================================
-
-    def all(self, limit: int = 0) -> list[Memory]:
-        """Все воспоминания (от новых к старым)."""
-        sorted_mems = sorted(self.memories, key=lambda m: m.created_at, reverse=True)
-        if limit:
-            return sorted_mems[:limit]
-        return sorted_mems
-
-    def latest(self, n: int = 10) -> list[Memory]:
-        return self.all(limit=n)
-
-    def by_kind(self, kind: str) -> list[Memory]:
-        return [m for m in self.all() if m.kind == kind.upper()]
-
-    def by_priority(self, priority: str) -> list[Memory]:
-        return [m for m in self.all() if m.priority == priority.upper()]
-
-    def by_tag(self, tag: str) -> list[Memory]:
-        tag = tag.lower()
-        return [m for m in self.all() if tag in [t.lower() for t in m.tags]]
-
-    def by_session(self, session_id: str) -> list[Memory]:
-        return [m for m in self.all() if m.session_id == session_id]
+    def count(self) -> int:
+        return len(self._memories)
 
     def sessions(self) -> list[str]:
-        """Список всех session_id (уникальных), от новых к старым."""
-        seen = []
-        for m in self.all():
-            if m.session_id not in seen:
-                seen.append(m.session_id)
+        seen: list[str] = []
+        for m in self._memories:
+            if m.session and m.session not in seen:
+                seen.append(m.session)
         return seen
 
-    def critical(self) -> list[Memory]:
-        """Все CRITICAL воспоминания."""
-        return self.by_priority("CRITICAL")
+    def latest(self, n: int = 20) -> list[Memory]:
+        return list(reversed(self._memories[-n:]))
 
-    def search(self, query: str) -> list[Memory]:
-        """Поиск по title, body, tags."""
-        q = query.lower()
-        return [
-            m for m in self.all()
-            if q in m.title.lower()
-            or q in m.body.lower()
-            or any(q in t.lower() for t in m.tags)
-        ]
+    def critical(self, n: int = 10) -> list[Memory]:
+        crit = [m for m in self._memories if m.priority in ("CRITICAL", "IMPORTANT")]
+        crit.sort(key=lambda m: PRIORITY_ORDER.get(m.priority, 99))
+        return crit[:n]
 
-    # =========================================================================
-    # БРИФ ДЛЯ AI
-    # =========================================================================
+    def by_tag(self, tag: str) -> list[Memory]:
+        return [m for m in self._memories if tag in m.tags]
+
+    def by_kind(self, kind: str) -> list[Memory]:
+        k = kind.upper()
+        return [m for m in self._memories if m.kind == k]
+
+    # ---------- Рендер ----------
+
+    def _fmt(self, m: Memory) -> str:
+        ke = KIND_EMOJI.get(m.kind, "•")
+        pe = PRIORITY_EMOJI.get(m.priority, "•")
+        tags = f" `#{'` `#'.join(m.tags)}`" if m.tags else ""
+        return (
+            f"- {ke} **[{m.kind}]** {pe} `{m.priority}` — {m.text}\n"
+            f"  <sub>{m.ts} · session `{m.session}` · `{m.hash[:10]}`{tags}</sub>"
+        )
 
     def brief(self, max_critical: int = 10, max_latest: int = 20) -> str:
-        """Сгенерировать текстовый бриф для AI."""
-        lines = []
-        lines.append("# 🧠 AIX Memory — Brief")
+        lines: list[str] = []
+        lines.append("## 🧠 AI Memory — бриф")
         lines.append("")
-        lines.append(f"Всего воспоминаний: **{len(self.memories)}**")
-        lines.append(f"Сессий: **{len(self.sessions())}**")
+        lines.append(f"_Воспоминаний всего: {self.count()}_")
         lines.append("")
 
-        # CRITICAL
-        critical = self.critical()[:max_critical]
-        if critical:
-            lines.append("## 🔴 CRITICAL (не забыть!)")
-            lines.append("")
-            for m in critical:
-                ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(m.created_at))
-                lines.append(f"- **{m.title}** — _{ts}_")
-                if m.body:
-                    lines.append(f"  > {m.body}")
-                if m.tags:
-                    lines.append(f"  `теги: {', '.join(m.tags)}`")
+        starts = [m for m in self._memories if m.kind == "SESSION_START"]
+        if starts:
+            lines.append("### 🚀 Сессии")
+            for m in starts[-5:][::-1]:
+                lines.append(self._fmt(m))
             lines.append("")
 
-        # Последние
-        lines.append(f"## 📜 Последние {max_latest}")
-        lines.append("")
-        for m in self.latest(max_latest):
-            ts = time.strftime("%m-%d %H:%M", time.localtime(m.created_at))
-            lines.append(f"- {m.emoji()} **{m.title}** — _{ts}_ `{m.kind}/{m.priority}`")
-            if m.body and len(m.body) < 200:
-                lines.append(f"  > {m.body}")
-        lines.append("")
+        crit = self.critical(max_critical)
+        if crit:
+            lines.append(f"### 🔴 Критично и важно (топ-{len(crit)})")
+            for m in crit:
+                lines.append(self._fmt(m))
+            lines.append("")
+
+        latest = self.latest(max_latest)
+        if latest:
+            lines.append(f"### 🕒 Последние {len(latest)}")
+            for m in latest:
+                lines.append(self._fmt(m))
+            lines.append("")
+
+        if not self._memories:
+            lines.append("_Память пуста. Запиши первое воспоминание:_")
+            lines.append("")
+            lines.append("```")
+            lines.append('python scripts/ai_remember.py "Начало сессии" '
+                         '--kind=SESSION_START --priority=NORMAL')
+            lines.append("```")
 
         return "\n".join(lines)
 
-    # =========================================================================
-    # СТАТИСТИКА
-    # =========================================================================
-
     def stats(self) -> dict:
-        by_kind = {}
-        by_priority = {}
-        for m in self.memories:
+        by_kind: dict[str, int] = {}
+        by_priority: dict[str, int] = {}
+        for m in self._memories:
             by_kind[m.kind] = by_kind.get(m.kind, 0) + 1
             by_priority[m.priority] = by_priority.get(m.priority, 0) + 1
-
         return {
-            "total": len(self.memories),
+            "total": len(self._memories),
             "sessions": len(self.sessions()),
             "by_kind": by_kind,
             "by_priority": by_priority,
-            "first_at": self.memories[0].created_at if self.memories else 0,
-            "last_at": self.memories[-1].created_at if self.memories else 0,
         }
-
-    def export_all(self) -> list:
-        return [m.to_dict() for m in self.memories]
-
-    def __len__(self):
-        return len(self.memories)
-
-    def __repr__(self):
-        return f"AIMemoryManager({len(self.memories)} memories, {len(self.sessions())} sessions)"
-
-
-# =============================================================================
-# ТЕСТ
-# =============================================================================
-
-if __name__ == "__main__":
-    print("🧠 Тестирую AI Memory...\n")
-
-    import tempfile
-    tmp = Path(tempfile.gettempdir()) / "test_ai_memory.json"
-    if tmp.exists():
-        tmp.unlink()
-
-    mgr = AIMemoryManager(tmp)
-
-    print("1. Записываю воспоминания:")
-    m1 = mgr.remember("Начало теста", kind="SESSION_START", priority="NORMAL")
-    print(f"   {m1}")
-
-    m2 = mgr.remember(
-        "Пофиксил баг с mempool",
-        body="Добавил remove_many в replace_chain",
-        kind="BUG_FIXED",
-        priority="IMPORTANT",
-        tags=["mempool", "chain"],
-    )
-    print(f"   {m2}")
-
-    m3 = mgr.remember(
-        "Критично: не менять PHONE_SALT",
-        body="Иначе все хеши номеров сломаются",
-        kind="LEARNING",
-        priority="CRITICAL",
-        tags=["contacts", "crypto"],
-    )
-    print(f"   {m3}")
-
-    print(f"\n2. Всего: {len(mgr)}")
-    print(f"   Сессий: {mgr.sessions()}")
-
-    print(f"\n3. CRITICAL:")
-    for m in mgr.critical():
-        print(f"   {m.priority_emoji()} {m.title}")
-
-    print(f"\n4. Поиск 'mempool':")
-    for m in mgr.search("mempool"):
-        print(f"   {m.emoji()} {m.title}")
-
-    print(f"\n5. Бриф:")
-    print("-" * 50)
-    print(mgr.brief())
-    print("-" * 50)
-
-    tmp.unlink()
-    print("\n✅ AI Memory работает.")

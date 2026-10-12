@@ -124,7 +124,7 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
     <div class="node-info">
         <span><span class="dot" id="status-dot"></span><span id="status-text">Подключение...</span></span>
         <span id="block-height">—</span>
-        <input id="node-url" type="text" value="http://localhost:8010"
+        <input id="node-url" type="text" value="http://127.0.0.1:8010"
                style="width:200px; padding:6px 10px; font-size:12px; margin:0;">
         <button class="secondary" onclick="changeNode()" style="padding:6px 14px; font-size:12px;">Подключить</button>
     </div>
@@ -140,6 +140,8 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
         <div class="tab" data-tab="medals">🏅 Медали</div>
         <div class="tab" data-tab="contacts">📇 Контакты</div>
         <div class="tab" data-tab="artifacts">🔥 Артефакты</div>
+        <div class="tab" data-tab="ai">🧠 AI Memory</div>
+        <div class="tab" data-tab="dao">🗳 DAO</div>
     </div>
 
     <div class="panel active" id="panel-overview">
@@ -312,13 +314,116 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
         <h2>Burn-to-Mint коллекция</h2>
         <div class="card" id="artifacts-list"><div class="empty">Загрузка...</div></div>
     </div>
+
+    <div class="panel" id="panel-ai">
+        <h2>🧠 AI Memory</h2>
+        <div class="notice">Память AI-ассистента. Каждое важное событие — структурированное воспоминание.</div>
+
+        <div class="grid">
+            <div class="stat"><div class="label">Всего</div><div class="value" id="ai-stat-total">—</div></div>
+            <div class="stat"><div class="label">Сессий</div><div class="value" id="ai-stat-sessions">—</div></div>
+            <div class="stat"><div class="label">🔴 Critical</div><div class="value" id="ai-stat-critical">—</div></div>
+            <div class="stat"><div class="label">🟠 Important</div><div class="value" id="ai-stat-important">—</div></div>
+        </div>
+
+        <h2>Записать воспоминание</h2>
+        <div class="card">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Текст</label>
+            <input id="ai-text" type="text" placeholder="Пофиксил баг с mempool">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Тип</label>
+            <select id="ai-kind">
+                <option value="THOUGHT">💭 THOUGHT</option>
+                <option value="MILESTONE">🏆 MILESTONE</option>
+                <option value="BUG_FIXED">🐛 BUG_FIXED</option>
+                <option value="DECISION">⚖️ DECISION</option>
+                <option value="LEARNING">📚 LEARNING</option>
+                <option value="IDEA">💡 IDEA</option>
+                <option value="SESSION_START">🚀 SESSION_START</option>
+                <option value="SESSION_END">🏁 SESSION_END</option>
+            </select>
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Приоритет</label>
+            <select id="ai-priority">
+                <option value="NORMAL">🟡 NORMAL</option>
+                <option value="IMPORTANT">🟠 IMPORTANT</option>
+                <option value="CRITICAL">🔴 CRITICAL</option>
+                <option value="EPHEMERAL">⚪ EPHEMERAL</option>
+            </select>
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Теги (через запятую)</label>
+            <input id="ai-tags" type="text" placeholder="mempool,chain">
+            <button onclick="aiRemember()" id="ai-btn">Записать</button>
+            <div class="result" id="ai-result"></div>
+        </div>
+
+        <h2>Последние воспоминания</h2>
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <span style="color:var(--muted); font-size:13px;">Обновлено: <span id="ai-updated">—</span></span>
+                <button class="secondary small" onclick="refreshAi()">🔄 Обновить</button>
+            </div>
+            <div id="ai-list"><div class="empty">Загрузка...</div></div>
+        </div>
+    </div>
+    <div class="panel" id="panel-dao">
+        <h2>🗳 DAO — Управление</h2>
+        <div class="notice">Governance на базе PoC. Голос = репутация SBT. Кворум 30%, порог &gt;50%. Период 100 блоков, задержка 20 блоков.</div>
+
+        <div class="grid">
+            <div class="stat"><div class="label">Всего</div><div class="value" id="dao-stat-total">—</div></div>
+            <div class="stat"><div class="label">Голосование</div><div class="value" id="dao-stat-voting">—</div></div>
+            <div class="stat"><div class="label">Принято</div><div class="value" id="dao-stat-passed">—</div></div>
+            <div class="stat"><div class="label">Исполнено</div><div class="value" id="dao-stat-executed">—</div></div>
+            <div class="stat"><div class="label">Репутация</div><div class="value" id="dao-stat-rep">—</div></div>
+        </div>
+
+        <h2>Создать предложение</h2>
+        <div class="card">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Автор (адрес или AIX-ID)</label>
+            <input id="dao-author" type="text" placeholder="alice or AIXT...">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Заголовок</label>
+            <input id="dao-title" type="text" placeholder="title">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Описание</label>
+            <input id="dao-desc" type="text" placeholder="description">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Тип</label>
+            <select id="dao-kind">
+                <option value="TEXT">TEXT</option>
+                <option value="SPEND">SPEND</option>
+            </select>
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Contribution ID (только SPEND)</label>
+            <input id="dao-cid" type="text" placeholder="POC-...">
+            <button onclick="daoCreate()" id="dao-create-btn">Создать</button>
+            <div class="result" id="dao-create-result"></div>
+        </div>
+
+        <h2>Предложения</h2>
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <span style="color:var(--muted); font-size:13px;">Обновлено: <span id="dao-updated">—</span></span>
+                <button class="secondary small" onclick="refreshDao()">🔄 Обновить</button>
+            </div>
+            <div id="dao-list"><div class="empty">Загрузка...</div></div>
+        </div>
+
+        <h2>Голосовать / Управлять</h2>
+        <div class="card">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Proposal ID</label>
+            <input id="dao-pid" type="text" placeholder="DAO-XXXX-XXXX">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Голосующий (адрес или AIX-ID)</label>
+            <input id="dao-voter" type="text" placeholder="alice or AIXT...">
+            <button onclick="daoVote('yes')">✅ Yes</button>
+            <button onclick="daoVote('no')" class="secondary">❌ No</button>
+            <button onclick="daoTally()" class="secondary">📊 Tally</button>
+            <button onclick="daoExecute()">⚡ Execute</button>
+            <button onclick="daoCancel()" class="secondary">🚫 Cancel</button>
+            <div class="result" id="dao-action-result"></div>
+        </div>
+    </div>
 </div>
 
 <footer>AIX OS v0.1.0-alpha · <span id="footer-url">localhost:8010</span> · Операционная система для жизни</footer>
 
 <script>
 const $ = (id) => document.getElementById(id);
-let NODE_URL = "http://localhost:8010";
+let NODE_URL = "http://127.0.0.1:8010";
 let currentWallets = [];
 let currentPools = [];
 let SIM_TOKENS_LIST = [];
@@ -356,6 +461,8 @@ document.querySelectorAll(".tab").forEach(t => {
         $("panel-" + t.dataset.tab).classList.add("active");
         if (t.dataset.tab === "swap") refreshSwapAll();
         if (t.dataset.tab === "poc") refreshPocAll();
+        if (t.dataset.tab === "ai") refreshAi();
+        if (t.dataset.tab === "dao") refreshDao();
         if (t.dataset.tab === "overview") drawChainChart();
     });
 });
@@ -810,6 +917,169 @@ async function pocPay(id) {
     } catch (e) { alert("❌ " + e.message); }
 }
 
+// AI MEMORY
+// DAO
+async function refreshDao() {
+    try {
+        const stats = await apiGet("/dao/stats");
+        $("dao-stat-total").textContent = stats.total;
+        $("dao-stat-voting").textContent = (stats.by_status && stats.by_status.voting) || 0;
+        $("dao-stat-passed").textContent = (stats.by_status && stats.by_status.passed) || 0;
+        $("dao-stat-executed").textContent = (stats.by_status && stats.by_status.executed) || 0;
+        $("dao-stat-rep").textContent = stats.total_reputation;
+
+        const data = await apiGet("/dao/all");
+        const list = $("dao-list");
+        if (!data.proposals || !data.proposals.length) {
+            list.innerHTML = '<div class="empty">No proposals</div>';
+        } else {
+            list.innerHTML = data.proposals.map(p => {
+                const votes = p.votes || {};
+                const yes = Object.values(votes).filter(v => v.choice === "yes").reduce((s,v) => s + v.weight, 0);
+                const no = Object.values(votes).filter(v => v.choice === "no").reduce((s,v) => s + v.weight, 0);
+                const cnt = Object.keys(votes).length;
+                return '<div style="padding:10px; border-bottom:1px solid #333;">' +
+                    '<div><b>' + p.id + '</b> / <span style="color:var(--muted)">' + p.kind + '</span></div>' +
+                    '<div><b>' + p.title + '</b></div>' +
+                    '<div style="color:var(--muted); font-size:12px;">' + (p.description || "") + '</div>' +
+                    '<div style="margin-top:6px; font-size:13px;">Author: ' + p.author + ' / Status: ' + p.status + ' / Votes: ' + cnt + ' (yes ' + yes + ' / no ' + no + ')</div>' +
+                    '</div>';
+            }).join("");
+        }
+        $("dao-updated").textContent = new Date().toLocaleTimeString("ru-RU");
+    } catch (e) {
+        $("dao-list").innerHTML = '<div class="empty">ERR: ' + e.message + '</div>';
+    }
+}
+
+async function daoCreate() {
+    const res = $("dao-create-result");
+    res.classList.add("show"); res.classList.remove("error");
+    try {
+        const kind = $("dao-kind").value;
+        const payload = kind === "SPEND" ? { contribution_id: $("dao-cid").value } : {};
+        const data = await apiPost("/dao/create", {
+            author: $("dao-author").value,
+            title: $("dao-title").value,
+            description: $("dao-desc").value,
+            kind: kind,
+            payload: payload,
+        });
+        res.textContent = "OK: " + data.id;
+        await refreshDao();
+    } catch (e) {
+        res.classList.add("error"); res.textContent = "ERR: " + e.message;
+    }
+}
+
+async function daoVote(choice) {
+    const res = $("dao-action-result");
+    res.classList.add("show"); res.classList.remove("error");
+    try {
+        const pid = $("dao-pid").value.trim();
+        const data = await apiPost("/dao/" + pid + "/vote", {
+            voter: $("dao-voter").value,
+            choice: choice,
+        });
+        res.textContent = "OK: " + (data.message || "voted");
+        await refreshDao();
+    } catch (e) {
+        res.classList.add("error"); res.textContent = "ERR: " + e.message;
+    }
+}
+
+async function daoTally() {
+    const res = $("dao-action-result");
+    res.classList.add("show"); res.classList.remove("error");
+    try {
+        const pid = $("dao-pid").value.trim();
+        const data = await apiPost("/dao/" + pid + "/tally", {});
+        res.textContent = "OK: " + (data.proposal_status || "tally");
+        await refreshDao();
+    } catch (e) {
+        res.classList.add("error"); res.textContent = "ERR: " + e.message;
+    }
+}
+
+async function daoExecute() {
+    const res = $("dao-action-result");
+    res.classList.add("show"); res.classList.remove("error");
+    try {
+        const pid = $("dao-pid").value.trim();
+        const data = await apiPost("/dao/" + pid + "/execute", {});
+        res.textContent = "OK: " + (data.message || "executed");
+        await refreshDao();
+    } catch (e) {
+        res.classList.add("error"); res.textContent = "ERR: " + e.message;
+    }
+}
+
+async function daoCancel() {
+    const res = $("dao-action-result");
+    res.classList.add("show"); res.classList.remove("error");
+    try {
+        const pid = $("dao-pid").value.trim();
+        await apiPost("/dao/" + pid + "/cancel", { by: $("dao-voter").value });
+        res.textContent = "OK: cancelled";
+        await refreshDao();
+    } catch (e) {
+        res.classList.add("error"); res.textContent = "ERR: " + e.message;
+    }
+}
+
+async function refreshAi() {
+    try {
+        const d = await apiGet("/ai/memory");
+        const st = d.stats;
+        document.getElementById("ai-stat-total").textContent = st.total;
+        document.getElementById("ai-stat-sessions").textContent = st.sessions;
+        document.getElementById("ai-stat-critical").textContent = st.by_priority.CRITICAL || 0;
+        document.getElementById("ai-stat-important").textContent = st.by_priority.IMPORTANT || 0;
+        document.getElementById("ai-updated").textContent = new Date().toLocaleTimeString("ru-RU");
+
+        const latest = await apiGet("/ai/memory/latest?n=15");
+        const el = document.getElementById("ai-list");
+        if (!latest.memories.length) {
+            el.innerHTML = '<div class="empty">Память пуста. Запиши первое воспоминание 👆</div>';
+            return;
+        }
+        const keMap = {SESSION_START:"🚀",SESSION_END:"🏁",MILESTONE:"🏆",BUG_FIXED:"🐛",DECISION:"⚖️",LEARNING:"📚",IDEA:"💡",THOUGHT:"💭"};
+        const peMap = {CRITICAL:"🔴",IMPORTANT:"🟠",NORMAL:"🟡",EPHEMERAL:"⚪"};
+        el.innerHTML = latest.memories.map(m => {
+            const ke = keMap[m.kind] || "•";
+            const pe = peMap[m.priority] || "•";
+            const tags = m.tags.length ? m.tags.map(t => `<span class="badge rare">#${t}</span>`).join(" ") : "";
+            return `<div style="padding:10px 0; border-bottom:1px solid rgba(0,240,255,0.1);">
+                <div style="color:var(--gold); font-size:13px;">${ke} <strong>${m.kind}</strong> ${pe} ${m.priority}</div>
+                <div style="color:var(--text); font-size:14px; margin:4px 0;">${m.text}</div>
+                <div style="color:var(--muted); font-size:11px;">${m.ts} · session <code>${m.session}</code> ${tags}</div>
+            </div>`;
+        }).join("");
+    } catch (e) {
+        document.getElementById("ai-list").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`;
+    }
+}
+
+async function aiRemember() {
+    const text = document.getElementById("ai-text").value.trim();
+    const kind = document.getElementById("ai-kind").value;
+    const priority = document.getElementById("ai-priority").value;
+    const tagsRaw = document.getElementById("ai-tags").value.trim();
+    const res = document.getElementById("ai-result");
+    if (!text) { res.className="result error show"; res.textContent="❌ Введи текст"; return; }
+    res.className = "result show"; res.textContent = "⏳ Запись...";
+    try {
+        const d = await apiPost("/ai/remember", {
+            text, kind, priority,
+            tags: tagsRaw ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean) : [],
+        });
+        res.textContent = `✅ Записано: ${d.id}\nвсего: ${d.total}`;
+        document.getElementById("ai-text").value = "";
+        document.getElementById("ai-tags").value = "";
+        await refreshAi();
+    } catch (e) { res.classList.add("error"); res.textContent = "❌ " + e.message; }
+}
+
 // Listeners
 document.addEventListener("DOMContentLoaded", () => {
     $("swap-from-token").addEventListener("change", updateQuote);
@@ -824,6 +1094,7 @@ async function refreshAll() {
     await refreshMedals();
     await refreshContacts();
     await refreshArtifacts();
+    await refreshAi();
 }
 
 refreshAll();

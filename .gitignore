@@ -210,3 +210,15 @@ debug_*.log
 AIX_OS_FULL_DUMP.txt
 SESSION_LOG.txt
 data/*.bak
+
+# AI Memory local
+AI_BRIEF.md
+data/ai_memory.json
+
+# session 2026-10-13
+*.bak2
+*.bak3
+*.bak4
+*.ps1.bak
+AI_BRIEF.json
+AI_BRIEF_FULL.md

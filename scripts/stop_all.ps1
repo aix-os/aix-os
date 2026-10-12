@@ -1,15 +1,39 @@
-# AIX OS — Остановка всех нод
-# Использование: .\scripts\stop_all.ps1
+# AIX OS - Stop all nodes + regenerate AI_BRIEF.md
+# Usage: .\scripts\stop_all.ps1
 
-Write-Host "🛑 Останавливаю все ноды AIX OS..." -ForegroundColor Yellow
+$root = Split-Path -Parent $PSScriptRoot
+Set-Location $root
 
-$procs = Get-Process python -ErrorAction SilentlyContinue | Where-Object {
-    $_.Path -and $_.CommandLine -match "network.server|http.server"
+Write-Host "Stopping all AIX OS nodes..." -ForegroundColor Yellow
+
+$found = 0
+
+$servers = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match "network.server|http.server" }
+
+foreach ($p in $servers) {
+    try {
+        Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
+        $found++
+    } catch {
+        Write-Host "  Could not kill PID $($p.ProcessId)" -ForegroundColor Red
+    }
 }
 
-if ($procs) {
-    $procs | Stop-Process -Force
-    Write-Host "✅ Остановлено процессов: $($procs.Count)" -ForegroundColor Green
+if ($found -gt 0) {
+    Write-Host "Stopped processes: $found" -ForegroundColor Green
 } else {
-    Write-Host "ℹ️  Нет запущенных нод" -ForegroundColor Cyan
+    Write-Host "No running nodes found" -ForegroundColor Cyan
+}
+
+# --- Regenerate AI_BRIEF.md after stop ---
+$py = Join-Path $root ".venv\Scripts\python.exe"
+if (Test-Path $py) {
+    Write-Host ""
+    Write-Host "Regenerating AI_BRIEF.md..." -ForegroundColor Magenta
+    try {
+        & $py scripts\ai_brief.py --output AI_BRIEF.md
+    } catch {
+        Write-Host "  (skipped)" -ForegroundColor Yellow
+    }
 }

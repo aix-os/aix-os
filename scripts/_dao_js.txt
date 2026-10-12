@@ -1,0 +1,108 @@
+// DAO
+async function refreshDao() {
+    try {
+        const stats = await apiGet("/dao/stats");
+        $("dao-stat-total").textContent = stats.total;
+        $("dao-stat-voting").textContent = (stats.by_status && stats.by_status.voting) || 0;
+        $("dao-stat-passed").textContent = (stats.by_status && stats.by_status.passed) || 0;
+        $("dao-stat-executed").textContent = (stats.by_status && stats.by_status.executed) || 0;
+        $("dao-stat-rep").textContent = stats.total_reputation;
+
+        const data = await apiGet("/dao/all");
+        const list = $("dao-list");
+        if (!data.proposals || !data.proposals.length) {
+            list.innerHTML = '<div class="empty">No proposals</div>';
+        } else {
+            list.innerHTML = data.proposals.map(p => {
+                const votes = p.votes || {};
+                const yes = Object.values(votes).filter(v => v.choice === "yes").reduce((s,v) => s + v.weight, 0);
+                const no = Object.values(votes).filter(v => v.choice === "no").reduce((s,v) => s + v.weight, 0);
+                const cnt = Object.keys(votes).length;
+                return '<div style="padding:10px; border-bottom:1px solid #333;">' +
+                    '<div><b>' + p.id + '</b> / <span style="color:var(--muted)">' + p.kind + '</span></div>' +
+                    '<div><b>' + p.title + '</b></div>' +
+                    '<div style="color:var(--muted); font-size:12px;">' + (p.description || "") + '</div>' +
+                    '<div style="margin-top:6px; font-size:13px;">Author: ' + p.author + ' / Status: ' + p.status + ' / Votes: ' + cnt + ' (yes ' + yes + ' / no ' + no + ')</div>' +
+                    '</div>';
+            }).join("");
+        }
+        $("dao-updated").textContent = new Date().toLocaleTimeString("ru-RU");
+    } catch (e) {
+        $("dao-list").innerHTML = '<div class="empty">ERR: ' + e.message + '</div>';
+    }
+}
+
+async function daoCreate() {
+    const res = $("dao-create-result");
+    res.classList.add("show"); res.classList.remove("error");
+    try {
+        const kind = $("dao-kind").value;
+        const payload = kind === "SPEND" ? { contribution_id: $("dao-cid").value } : {};
+        const data = await apiPost("/dao/create", {
+            author: $("dao-author").value,
+            title: $("dao-title").value,
+            description: $("dao-desc").value,
+            kind: kind,
+            payload: payload,
+        });
+        res.textContent = "OK: " + data.id;
+        await refreshDao();
+    } catch (e) {
+        res.classList.add("error"); res.textContent = "ERR: " + e.message;
+    }
+}
+
+async function daoVote(choice) {
+    const res = $("dao-action-result");
+    res.classList.add("show"); res.classList.remove("error");
+    try {
+        const pid = $("dao-pid").value.trim();
+        const data = await apiPost("/dao/" + pid + "/vote", {
+            voter: $("dao-voter").value,
+            choice: choice,
+        });
+        res.textContent = "OK: " + (data.message || "voted");
+        await refreshDao();
+    } catch (e) {
+        res.classList.add("error"); res.textContent = "ERR: " + e.message;
+    }
+}
+
+async function daoTally() {
+    const res = $("dao-action-result");
+    res.classList.add("show"); res.classList.remove("error");
+    try {
+        const pid = $("dao-pid").value.trim();
+        const data = await apiPost("/dao/" + pid + "/tally", {});
+        res.textContent = "OK: " + (data.proposal_status || "tally");
+        await refreshDao();
+    } catch (e) {
+        res.classList.add("error"); res.textContent = "ERR: " + e.message;
+    }
+}
+
+async function daoExecute() {
+    const res = $("dao-action-result");
+    res.classList.add("show"); res.classList.remove("error");
+    try {
+        const pid = $("dao-pid").value.trim();
+        const data = await apiPost("/dao/" + pid + "/execute", {});
+        res.textContent = "OK: " + (data.message || "executed");
+        await refreshDao();
+    } catch (e) {
+        res.classList.add("error"); res.textContent = "ERR: " + e.message;
+    }
+}
+
+async function daoCancel() {
+    const res = $("dao-action-result");
+    res.classList.add("show"); res.classList.remove("error");
+    try {
+        const pid = $("dao-pid").value.trim();
+        await apiPost("/dao/" + pid + "/cancel", { by: $("dao-voter").value });
+        res.textContent = "OK: cancelled";
+        await refreshDao();
+    } catch (e) {
+        res.classList.add("error"); res.textContent = "ERR: " + e.message;
+    }
+}

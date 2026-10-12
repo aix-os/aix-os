@@ -1,0 +1,55 @@
+
+    <div class="panel" id="panel-dao">
+        <h2>🗳 DAO — Управление</h2>
+        <div class="notice">Governance на базе PoC. Голос = репутация SBT. Кворум 30%, порог &gt;50%. Период 100 блоков, задержка 20 блоков.</div>
+
+        <div class="grid">
+            <div class="stat"><div class="label">Всего</div><div class="value" id="dao-stat-total">—</div></div>
+            <div class="stat"><div class="label">Голосование</div><div class="value" id="dao-stat-voting">—</div></div>
+            <div class="stat"><div class="label">Принято</div><div class="value" id="dao-stat-passed">—</div></div>
+            <div class="stat"><div class="label">Исполнено</div><div class="value" id="dao-stat-executed">—</div></div>
+            <div class="stat"><div class="label">Репутация</div><div class="value" id="dao-stat-rep">—</div></div>
+        </div>
+
+        <h2>Создать предложение</h2>
+        <div class="card">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Автор (адрес или AIX-ID)</label>
+            <input id="dao-author" type="text" placeholder="alice or AIXT...">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Заголовок</label>
+            <input id="dao-title" type="text" placeholder="title">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Описание</label>
+            <input id="dao-desc" type="text" placeholder="description">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Тип</label>
+            <select id="dao-kind">
+                <option value="TEXT">TEXT</option>
+                <option value="SPEND">SPEND</option>
+            </select>
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Contribution ID (только SPEND)</label>
+            <input id="dao-cid" type="text" placeholder="POC-...">
+            <button onclick="daoCreate()" id="dao-create-btn">Создать</button>
+            <div class="result" id="dao-create-result"></div>
+        </div>
+
+        <h2>Предложения</h2>
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <span style="color:var(--muted); font-size:13px;">Обновлено: <span id="dao-updated">—</span></span>
+                <button class="secondary small" onclick="refreshDao()">🔄 Обновить</button>
+            </div>
+            <div id="dao-list"><div class="empty">Загрузка...</div></div>
+        </div>
+
+        <h2>Голосовать / Управлять</h2>
+        <div class="card">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Proposal ID</label>
+            <input id="dao-pid" type="text" placeholder="DAO-XXXX-XXXX">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Голосующий (адрес или AIX-ID)</label>
+            <input id="dao-voter" type="text" placeholder="alice or AIXT...">
+            <button onclick="daoVote('yes')">✅ Yes</button>
+            <button onclick="daoVote('no')" class="secondary">❌ No</button>
+            <button onclick="daoTally()" class="secondary">📊 Tally</button>
+            <button onclick="daoExecute()">⚡ Execute</button>
+            <button onclick="daoCancel()" class="secondary">🚫 Cancel</button>
+            <div class="result" id="dao-action-result"></div>
+        </div>
+    </div>

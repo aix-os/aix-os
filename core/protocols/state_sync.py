@@ -23,12 +23,13 @@ from core.protocols.aix_id import AIXProfile
 from core.protocols.burn_to_mint import BurnArtifact
 from core.protocols.contacts import Contact
 from core.protocols.poc import Contribution, RewardPool
+from core.governance.dao import Proposal
 
 
 def export_state(gift_manager, timelock_manager, sbt_manager,
                  inheritance_manager=None, id_manager=None,
                  burn_manager=None, contacts_manager=None,
-                 swap_manager=None, poc_manager=None) -> dict:
+                 swap_manager=None, poc_manager=None, dao_manager=None) -> dict:
     result = {
         "timestamp": time.time(),
         "gifts": [l.to_dict() for l in gift_manager.links.values()],
@@ -49,19 +50,21 @@ def export_state(gift_manager, timelock_manager, sbt_manager,
     if poc_manager is not None:
         result["poc_contributions"] = [c.to_dict() for c in poc_manager.contributions.values()]
         result["poc_pool"] = poc_manager.pool.to_dict()
+    if dao_manager is not None:
+        result["dao_proposals"] = dao_manager.export_all()
     return result
 
 
 def import_state(data: dict, gift_manager, timelock_manager, sbt_manager,
                  inheritance_manager=None, id_manager=None,
                  burn_manager=None, contacts_manager=None,
-                 swap_manager=None, poc_manager=None) -> dict:
+                 swap_manager=None, poc_manager=None, dao_manager=None) -> dict:
     added = {"gifts": 0, "timelocks": 0, "medals": 0, "inheritances": 0,
              "aix_ids": 0, "burn_artifacts": 0, "contacts": 0, "swap_pools": 0,
-             "poc_contributions": 0}
+             "poc_contributions": 0, "dao_proposals": 0}
     skipped = {"gifts": 0, "timelocks": 0, "medals": 0, "inheritances": 0,
                "aix_ids": 0, "burn_artifacts": 0, "contacts": 0, "swap_pools": 0,
-               "poc_contributions": 0}
+               "poc_contributions": 0, "dao_proposals": 0}
 
     # Gifts
     for item in data.get("gifts", []):
@@ -214,6 +217,18 @@ def import_state(data: dict, gift_manager, timelock_manager, sbt_manager,
             except Exception as e:
                 print(f"WARN: import poc_pool: {e}")
 
+    # DAO
+    if dao_manager is not None:
+        for item in data.get("dao_proposals", []):
+            try:
+                ok, msg = dao_manager.import_proposal(item)
+                if ok and msg in ("добавлен", "обновлён", "голоса обновлены"):
+                    added["dao_proposals"] += 1
+                else:
+                    skipped["dao_proposals"] += 1
+            except Exception as e:
+                print(f"WARN: import dao_proposal: {e}")
+
     # Save
     if added["gifts"] > 0:
         gift_manager._save()
@@ -277,10 +292,14 @@ def make_poc_pool_event(pool: RewardPool) -> dict:
     return {"kind": "poc_pool", "data": pool.to_dict()}
 
 
+def make_dao_event(proposal: Proposal) -> dict:
+    return {"kind": "dao_proposal", "data": proposal.to_dict()}
+
+
 def apply_event(event: dict, gift_manager, timelock_manager, sbt_manager,
                 inheritance_manager=None, id_manager=None,
                 burn_manager=None, contacts_manager=None,
-                swap_manager=None, poc_manager=None) -> tuple:
+                swap_manager=None, poc_manager=None, dao_manager=None) -> tuple:
     kind = event.get("kind")
     data = event.get("data", {})
 
@@ -389,6 +408,12 @@ def apply_event(event: dict, gift_manager, timelock_manager, sbt_manager,
                 return False, "poc manager недоступен"
             ok, msg = poc_manager.import_pool(data)
             return ok, f"poc_pool: {msg}"
+
+        if kind == "dao_proposal":
+            if dao_manager is None:
+                return False, "dao manager недоступен"
+            ok, msg = dao_manager.import_proposal(data)
+            return ok, f"dao_proposal: {msg}"
 
         return False, f"неизвестный kind: {kind}"
     except Exception as e:
