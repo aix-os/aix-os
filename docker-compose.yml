@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  node-a:
+    build: .
+    container_name: aix-node-a
+    ports:
+      - "8010:8010"
+    volumes:
+      - ./data:/app/data
+      - ./config.py:/app/config.py:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python -m network.server --port 8010 --data data/chain_A.json --url http://node-a:8010
+    restart: unless-stopped
+    networks:
+      - aix-net
+
+  node-b:
+    build: .
+    container_name: aix-node-b
+    ports:
+      - "8011:8011"
+    volumes:
+      - ./data:/app/data
+      - ./config.py:/app/config.py:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python -m network.server --port 8011 --data data/chain_B.json --url http://node-b:8011
+    depends_on:
+      - node-a
+    restart: unless-stopped
+    networks:
+      - aix-net
+
+  web:
+    image: python:3.11-slim
+    container_name: aix-web
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./web:/web:ro
+    working_dir: /web
+    command: python -m http.server 9000
+    restart: unless-stopped
+    networks:
+      - aix-net
+
+networks:
+  aix-net:
+    driver: bridge

@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>AIX OS — Web Wallet</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root { --cosmos:#0A0E27; --cosmos2:#131A3A; --neon:#00F0FF; --purple:#8B00FF;
+        --gold:#FFD700; --green:#00FF88; --red:#FF3366; --text:#E0E8FF; --muted:#6B7CA8; }
+body { background:var(--cosmos); color:var(--text); font-family:'Segoe UI','Inter',system-ui,sans-serif;
+       min-height:100vh;
+       background-image:radial-gradient(circle at 20% 20%,rgba(139,0,255,0.15) 0%,transparent 50%),
+                        radial-gradient(circle at 80% 80%,rgba(0,240,255,0.1) 0%,transparent 50%);
+       background-attachment:fixed; }
+header { padding:20px 40px; border-bottom:1px solid rgba(0,240,255,0.2);
+         display:flex; justify-content:space-between; align-items:center;
+         background:rgba(10,14,39,0.9); backdrop-filter:blur(10px);
+         position:sticky; top:0; z-index:100; }
+.logo { font-size:24px; font-weight:700; color:var(--gold); letter-spacing:2px; }
+.logo .bolt { color:var(--neon); }
+.node-info { display:flex; gap:20px; align-items:center; font-size:13px; color:var(--muted); }
+.dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--red); margin-right:6px; }
+.dot.online { background:var(--green); box-shadow:0 0 10px var(--green); }
+.container { max-width:1200px; margin:0 auto; padding:30px 40px; }
+.tabs { display:flex; gap:10px; margin-bottom:30px; flex-wrap:wrap; }
+.tab { padding:10px 20px; background:var(--cosmos2); border:1px solid rgba(0,240,255,0.2);
+       color:var(--muted); border-radius:10px; cursor:pointer; font-size:14px; transition:all 0.2s; user-select:none; }
+.tab:hover { border-color:var(--neon); color:var(--text); }
+.tab.active { background:linear-gradient(135deg,rgba(0,240,255,0.2),rgba(139,0,255,0.2));
+              border-color:var(--neon); color:var(--gold); box-shadow:0 0 20px rgba(0,240,255,0.3); }
+.panel { display:none; } .panel.active { display:block; animation:fadeIn 0.3s; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:20px; margin-bottom:30px; }
+.stat { background:var(--cosmos2); border:1px solid rgba(0,240,255,0.15); border-radius:14px;
+        padding:20px; transition:all 0.2s; }
+.stat:hover { border-color:var(--neon); box-shadow:0 0 25px rgba(0,240,255,0.2); transform:translateY(-2px); }
+.stat .label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+.stat .value { font-size:26px; font-weight:700; color:var(--gold); margin-top:8px; font-variant-numeric:tabular-nums; }
+.card { background:var(--cosmos2); border:1px solid rgba(0,240,255,0.15); border-radius:14px; padding:20px; margin-bottom:15px; }
+.wallet-row { display:flex; align-items:center; gap:20px; padding:15px 0; border-bottom:1px solid rgba(0,240,255,0.1); }
+.wallet-row:last-child { border-bottom:none; }
+.avatar { font-size:32px; width:50px; height:50px; display:flex; align-items:center; justify-content:center;
+          background:rgba(0,240,255,0.05); border-radius:12px; flex-shrink:0; }
+.wallet-info { flex:1; min-width:0; }
+.wallet-name { font-size:16px; color:var(--gold); font-weight:600; }
+.wallet-addr { font-size:11px; color:var(--muted); font-family:'Consolas',monospace; margin-top:2px; word-break:break-all; }
+.balance { text-align:right; }
+.balance-value { font-size:20px; color:var(--green); font-weight:700; font-variant-numeric:tabular-nums; }
+.balance-locked { font-size:11px; color:var(--muted); margin-top:2px; }
+h2 { color:var(--neon); font-size:18px; margin:25px 0 15px; letter-spacing:1px; text-transform:uppercase; }
+h2:first-child { margin-top:0; }
+h3 { color:var(--muted); font-size:13px; margin:15px 0 10px; letter-spacing:1px; text-transform:uppercase; }
+input,select { width:100%; padding:12px 15px; background:var(--cosmos); border:1px solid rgba(0,240,255,0.3);
+               color:var(--text); border-radius:8px; font-size:14px; font-family:inherit; outline:none; margin-bottom:12px; }
+input:focus,select:focus { border-color:var(--neon); box-shadow:0 0 15px rgba(0,240,255,0.2); }
+input::placeholder { color:var(--muted); }
+button { padding:12px 24px; background:linear-gradient(135deg,var(--purple),var(--neon)); color:white;
+         border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer;
+         transition:all 0.2s; text-transform:uppercase; letter-spacing:1px; }
+button:hover { transform:translateY(-2px); box-shadow:0 10px 25px rgba(0,240,255,0.3); }
+button:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+button.secondary { background:var(--cosmos2); border:1px solid var(--neon); color:var(--neon); }
+button.small { padding:6px 14px; font-size:12px; }
+button.green { background:linear-gradient(135deg,#00aa55,#00FF88); }
+button.red { background:linear-gradient(135deg,#aa2244,#FF3366); }
+.badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; margin-left:8px; }
+.badge.common { background:rgba(255,255,255,0.1); color:#ccc; }
+.badge.uncommon { background:rgba(0,255,136,0.15); color:var(--green); }
+.badge.rare { background:rgba(0,240,255,0.15); color:var(--neon); }
+.badge.legendary { background:rgba(139,0,255,0.2); color:var(--purple); }
+.badge.mythic { background:rgba(255,215,0,0.2); color:var(--gold); }
+.notice { background:rgba(255,215,0,0.1); border:1px solid var(--gold); border-radius:10px;
+          padding:12px 16px; color:var(--gold); font-size:13px; margin-bottom:20px; }
+.result { background:rgba(0,255,136,0.1); border:1px solid var(--green); border-radius:10px;
+          padding:12px 16px; color:var(--green); font-size:13px; margin-top:15px; display:none;
+          white-space:pre-wrap; font-family:'Consolas',monospace; }
+.result.show { display:block; animation:fadeIn 0.3s; }
+.result.error { background:rgba(255,51,102,0.1); border-color:var(--red); color:var(--red); }
+.empty { text-align:center; padding:40px; color:var(--muted); font-style:italic; }
+footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
+         border-top:1px solid rgba(0,240,255,0.1); margin-top:40px; }
+.swap-form { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+@media (max-width:700px) { .swap-form { grid-template-columns:1fr; } }
+.quote-box { background:rgba(0,240,255,0.05); border:1px dashed var(--neon); border-radius:10px;
+             padding:15px; margin:15px 0; font-family:'Consolas',monospace; font-size:13px; }
+.quote-row { display:flex; justify-content:space-between; padding:4px 0; }
+.quote-row .key { color:var(--muted); }
+.quote-row .val { color:var(--gold); font-weight:600; }
+.pool-card { background:var(--cosmos); border:1px solid rgba(0,240,255,0.2); border-radius:12px;
+             padding:18px; margin-bottom:12px; transition:all 0.2s; }
+.pool-card:hover { border-color:var(--neon); box-shadow:0 0 20px rgba(0,240,255,0.15); }
+.pool-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px; }
+.pool-id { font-size:16px; color:var(--gold); font-weight:700; }
+.pool-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; font-size:12px; }
+.pool-stat-label { color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+.pool-stat-value { color:var(--neon); font-family:'Consolas',monospace; margin-top:2px; }
+.faucet-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.sim-balance-row { display:flex; justify-content:space-between; align-items:center;
+                   padding:8px 0; border-bottom:1px solid rgba(0,240,255,0.05); }
+.sim-balance-row:last-child { border-bottom:none; }
+.lp-position { background:rgba(0,240,255,0.03); border:1px solid rgba(0,240,255,0.15);
+               border-radius:10px; padding:15px; margin-bottom:10px; }
+.chart-box { background:var(--cosmos); border:1px solid rgba(0,240,255,0.15); border-radius:12px;
+             padding:20px; margin-bottom:20px; height:300px; }
+.status-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+.status-pending { background:rgba(255,215,0,0.15); color:var(--gold); }
+.status-confirmed { background:rgba(0,255,136,0.15); color:var(--green); }
+.status-paid { background:rgba(0,240,255,0.15); color:var(--neon); }
+.status-rejected { background:rgba(255,51,102,0.15); color:var(--red); }
+.poc-row { display:flex; justify-content:space-between; align-items:center;
+           padding:12px 0; border-bottom:1px solid rgba(0,240,255,0.1); flex-wrap:wrap; gap:10px; }
+.poc-row:last-child { border-bottom:none; }
+.poc-info { flex:1; min-width:200px; }
+.poc-title { font-size:14px; color:var(--gold); font-weight:600; }
+.poc-meta { font-size:12px; color:var(--muted); margin-top:3px; }
+.poc-actions { display:flex; gap:8px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="logo">AIX <span class="bolt">⚡</span> OS</div>
+    <div class="node-info">
+        <span><span class="dot" id="status-dot"></span><span id="status-text">Подключение...</span></span>
+        <span id="block-height">—</span>
+        <input id="node-url" type="text" value="http://localhost:8010"
+               style="width:200px; padding:6px 10px; font-size:12px; margin:0;">
+        <button class="secondary" onclick="changeNode()" style="padding:6px 14px; font-size:12px;">Подключить</button>
+    </div>
+</header>
+
+<div class="container">
+    <div class="tabs">
+        <div class="tab active" data-tab="overview">📊 Обзор</div>
+        <div class="tab" data-tab="wallets">👛 Кошельки</div>
+        <div class="tab" data-tab="send">📤 Отправить</div>
+        <div class="tab" data-tab="swap">💱 Обмен</div>
+        <div class="tab" data-tab="poc">🧬 PoC</div>
+        <div class="tab" data-tab="medals">🏅 Медали</div>
+        <div class="tab" data-tab="contacts">📇 Контакты</div>
+        <div class="tab" data-tab="artifacts">🔥 Артефакты</div>
+    </div>
+
+    <div class="panel active" id="panel-overview">
+        <h2>Империя в цифрах</h2>
+        <div class="grid">
+            <div class="stat"><div class="label">Высота</div><div class="value" id="ov-height">—</div></div>
+            <div class="stat"><div class="label">Транзакций</div><div class="value" id="ov-txs">—</div></div>
+            <div class="stat"><div class="label">Всего AIX</div><div class="value" id="ov-supply">—</div></div>
+            <div class="stat"><div class="label">🔥 Сожжено</div><div class="value" id="ov-burned">—</div></div>
+            <div class="stat"><div class="label">Пиров</div><div class="value" id="ov-peers">—</div></div>
+            <div class="stat"><div class="label">🪪 AIX-ID</div><div class="value" id="ov-ids">—</div></div>
+            <div class="stat"><div class="label">🏅 Медалей</div><div class="value" id="ov-sbt">—</div></div>
+            <div class="stat"><div class="label">📇 Контактов</div><div class="value" id="ov-contacts">—</div></div>
+            <div class="stat"><div class="label">🔥 Артефактов</div><div class="value" id="ov-burn">—</div></div>
+            <div class="stat"><div class="label">💱 Пулов</div><div class="value" id="ov-swap">—</div></div>
+            <div class="stat"><div class="label">🧬 PoC</div><div class="value" id="ov-poc">—</div></div>
+            <div class="stat"><div class="label">🧬 Фонд</div><div class="value" id="ov-poc-pool">—</div></div>
+        </div>
+        <h2>Динамика сети</h2>
+        <div class="chart-box"><canvas id="chain-chart"></canvas></div>
+    </div>
+
+    <div class="panel" id="panel-wallets">
+        <h2>Кошельки</h2>
+        <div class="card" id="wallets-list"><div class="empty">Загрузка...</div></div>
+    </div>
+
+    <div class="panel" id="panel-send">
+        <h2>Отправить AIX</h2>
+        <div class="notice">⚠️ Для теста введите приватный ключ. В продакшне ключ должен жить в кошельке.</div>
+        <div class="card">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Отправитель</label>
+            <select id="send-sender"></select>
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Получатель</label>
+            <input id="send-recipient" type="text" placeholder="@id, адрес или phone:+79991234567">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Сумма AIX</label>
+            <input id="send-amount" type="number" placeholder="10.0" step="0.0001" min="0.0001">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Сообщение</label>
+            <input id="send-message" type="text" placeholder="Первый перевод!">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Приватный ключ (hex)</label>
+            <input id="send-privkey" type="password" placeholder="Вставь из wallet.json">
+            <button onclick="sendMoney()" id="send-btn">Отправить</button>
+            <div class="result" id="send-result"></div>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-swap">
+        <h2>💱 Обмен SIM-токенов</h2>
+        <div class="notice">🤖 AIX-SIM — симуляция AIX для теста DeFi.</div>
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <strong style="color:var(--gold);">Кошелёк:</strong>
+                    <select id="swap-wallet" style="width:auto; display:inline-block; margin-left:10px; padding:6px 12px; font-size:13px; margin-bottom:0;"></select>
+                </div>
+                <button class="secondary small" onclick="refreshSwapBalances()">🔄 Обновить</button>
+            </div>
+            <h3>Ваши SIM-токены</h3>
+            <div id="sim-balances"><div class="empty">Загрузка...</div></div>
+            <div class="faucet-row">
+                <button class="secondary small" onclick="faucet('AIX-SIM')">+1000 AIX-SIM</button>
+                <button class="secondary small" onclick="faucet('USDT-SIM')">+1000 USDT-SIM</button>
+                <button class="secondary small" onclick="faucet('BTC-SIM')">+1000 BTC-SIM</button>
+                <button class="secondary small" onclick="faucet('ETH-SIM')">+1000 ETH-SIM</button>
+                <button class="secondary small" onclick="faucet('SOL-SIM')">+1000 SOL-SIM</button>
+            </div>
+            <div class="result" id="faucet-result"></div>
+        </div>
+        <h2>Обменять</h2>
+        <div class="card">
+            <div class="swap-form">
+                <div>
+                    <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Отдаю</label>
+                    <select id="swap-from-token"></select>
+                    <input id="swap-amount" type="number" placeholder="100" step="0.01" oninput="updateQuote()">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Получаю</label>
+                    <select id="swap-to-token"></select>
+                </div>
+            </div>
+            <div class="quote-box" id="quote-box" style="display:none;">
+                <div class="quote-row"><span class="key">Получите:</span><span class="val" id="quote-out">—</span></div>
+                <div class="quote-row"><span class="key">Курс:</span><span class="val" id="quote-price">—</span></div>
+                <div class="quote-row"><span class="key">Slippage:</span><span class="val" id="quote-slip">—</span></div>
+            </div>
+            <button onclick="executeSwap()" id="swap-btn" style="width:100%;" disabled>Обменять</button>
+            <div class="result" id="swap-result"></div>
+        </div>
+        <h2>Пулы</h2>
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <span style="color:var(--muted); font-size:13px;">Всего: <strong id="pools-count" style="color:var(--neon);">0</strong></span>
+                <button class="secondary small" onclick="refreshPools()">🔄 Обновить</button>
+            </div>
+            <div id="pools-list"><div class="empty">Загрузка...</div></div>
+        </div>
+    </div>
+
+    <div class="panel" id="panel-poc">
+        <h2>🧬 Proof of Contribution</h2>
+        <div class="notice">Награды за вклад в проект AIX OS. Фонд пополняется сообществом, награды — по подтверждению.</div>
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                <div style="flex:1;">
+                    <strong style="color:var(--gold);">Кошелёк:</strong>
+                    <select id="poc-wallet" style="width:auto; display:inline-block; margin-left:10px; padding:6px 12px; font-size:13px; margin-bottom:0;"></select>
+                </div>
+                <button class="secondary small" onclick="refreshPocAll()">🔄 Обновить</button>
+            </div>
+            <h3>Состояние фонда</h3>
+            <div class="grid" id="poc-pool-grid">
+                <div class="stat"><div class="label">Баланс фонда</div><div class="value" id="poc-pool-balance">—</div></div>
+                <div class="stat"><div class="label">Всего внесли</div><div class="value" id="poc-pool-donated">—</div></div>
+                <div class="stat"><div class="label">Всего выплат</div><div class="value" id="poc-pool-paid">—</div></div>
+                <div class="stat"><div class="label">Вкладов</div><div class="value" id="poc-pool-count">—</div></div>
+            </div>
+        </div>
+
+        <h2>Донат в фонд</h2>
+        <div class="card">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Сумма AIX</label>
+            <input id="poc-donate-amount" type="number" placeholder="100" step="1" min="1">
+            <button onclick="pocDonate()" id="poc-donate-btn">Пожертвовать</button>
+            <div class="result" id="poc-donate-result"></div>
+        </div>
+
+        <h2>Создать вклад</h2>
+        <div class="card">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Категория</label>
+            <select id="poc-category"></select>
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Название (кратко)</label>
+            <input id="poc-title" type="text" placeholder="Реализовал X">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Описание (подробно)</label>
+            <input id="poc-desc" type="text" placeholder="Что именно сделал, где, как проверить">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Запрашиваемая награда AIX</label>
+            <input id="poc-reward" type="number" placeholder="100" step="1" min="1">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">URL доказательства (опционально)</label>
+            <input id="poc-proof" type="text" placeholder="https://github.com/...">
+            <button onclick="pocSubmit()" id="poc-submit-btn">Создать вклад</button>
+            <div class="result" id="poc-submit-result"></div>
+        </div>
+
+        <h2>Вклады</h2>
+        <div class="card">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
+                <button class="secondary small" onclick="loadPocByStatus('pending')">⏳ Pending</button>
+                <button class="secondary small" onclick="loadPocByStatus('confirmed')">✅ Confirmed</button>
+                <button class="secondary small" onclick="loadPocByStatus('paid')">💰 Paid</button>
+                <button class="secondary small" onclick="loadPocAll()">📋 Все</button>
+            </div>
+            <div id="poc-list"><div class="empty">Выберите фильтр</div></div>
+        </div>
+
+        <h2>Топ контрибьюторов</h2>
+        <div class="card" id="poc-leaderboard"><div class="empty">Загрузка...</div></div>
+    </div>
+
+    <div class="panel" id="panel-medals">
+        <h2>Медали и репутация</h2>
+        <div class="card" id="medals-list"><div class="empty">Загрузка...</div></div>
+    </div>
+
+    <div class="panel" id="panel-contacts">
+        <h2>Телефонная книга</h2>
+        <div class="card"><div id="contacts-list"><div class="empty">Загрузка...</div></div></div>
+    </div>
+
+    <div class="panel" id="panel-artifacts">
+        <h2>Burn-to-Mint коллекция</h2>
+        <div class="card" id="artifacts-list"><div class="empty">Загрузка...</div></div>
+    </div>
+</div>
+
+<footer>AIX OS v0.1.0-alpha · <span id="footer-url">localhost:8010</span> · Операционная система для жизни</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let NODE_URL = "http://localhost:8010";
+let currentWallets = [];
+let currentPools = [];
+let SIM_TOKENS_LIST = [];
+let CATEGORIES_LIST = [];
+let chainChart = null;
+
+async function apiGet(path) {
+    const r = await fetch(NODE_URL + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+}
+async function apiPost(path, body) {
+    const r = await fetch(NODE_URL + path, {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || JSON.stringify(data));
+    return data;
+}
+function fmt(n, d = 2) {
+    if (typeof n !== "number") return n;
+    return n.toLocaleString("ru-RU", {minimumFractionDigits:d, maximumFractionDigits:d});
+}
+function fmtToken(n, d = 4) {
+    if (typeof n !== "number") return n;
+    return n.toLocaleString("ru-RU", {minimumFractionDigits:0, maximumFractionDigits:d});
+}
+
+document.querySelectorAll(".tab").forEach(t => {
+    t.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+        document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
+        t.classList.add("active");
+        $("panel-" + t.dataset.tab).classList.add("active");
+        if (t.dataset.tab === "swap") refreshSwapAll();
+        if (t.dataset.tab === "poc") refreshPocAll();
+        if (t.dataset.tab === "overview") drawChainChart();
+    });
+});
+function changeNode() {
+    NODE_URL = $("node-url").value.replace(/\/$/, "");
+    $("footer-url").textContent = NODE_URL.replace("http://", "");
+    refreshAll();
+}
+
+async function refreshStatus() {
+    try {
+        const s = await apiGet("/status");
+        $("status-dot").classList.add("online");
+        $("status-text").textContent = "online :" + s.port;
+        $("block-height").textContent = "Блок #" + s.height;
+        $("ov-height").textContent = s.height;
+        $("ov-txs").textContent = s.total_transactions;
+        $("ov-supply").textContent = fmt(s.total_supply_aix);
+        $("ov-burned").textContent = fmt(s.total_burned_aix);
+        $("ov-peers").textContent = s.peers_count;
+        $("ov-ids").textContent = s.ids_count;
+        $("ov-sbt").textContent = s.sbt_count;
+        $("ov-contacts").textContent = s.contacts_count;
+        $("ov-burn").textContent = s.burn_count;
+        $("ov-swap").textContent = s.swap_pools_count || 0;
+        $("ov-poc").textContent = s.poc_count || 0;
+        $("ov-poc-pool").textContent = fmt(s.poc_pool_aix || 0);
+    } catch (e) {
+        $("status-dot").classList.remove("online");
+        $("status-text").textContent = "offline";
+    }
+}
+
+async function drawChainChart() {
+    try {
+        const d = await apiGet("/chain?limit=20");
+        const labels = d.blocks.map(b => "#" + b.index);
+        const txCounts = d.blocks.map(b => b.transactions.length);
+
+        if (chainChart) chainChart.destroy();
+        const ctx = $("chain-chart").getContext("2d");
+        chainChart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels,
+                datasets: [{
+                    label: "Транзакций в блоке",
+                    data: txCounts,
+                    borderColor: "#00F0FF",
+                    backgroundColor: "rgba(0,240,255,0.1)",
+                    tension: 0.4, fill: true, borderWidth: 2,
+                }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: "#E0E8FF" } } },
+                scales: {
+                    x: { ticks: { color: "#6B7CA8" }, grid: { color: "rgba(0,240,255,0.05)" } },
+                    y: { ticks: { color: "#6B7CA8" }, grid: { color: "rgba(0,240,255,0.05)" }, beginAtZero: true },
+                },
+            },
+        });
+    } catch (e) {}
+}
+
+async function refreshWallets() {
+    try {
+        const d = await apiGet("/wallets");
+        currentWallets = d.wallets;
+        const el = $("wallets-list");
+        if (!d.wallets.length) { el.innerHTML = '<div class="empty">Нет кошельков</div>'; return; }
+        el.innerHTML = d.wallets.map(w => {
+            const avatar = w.avatar || "👤";
+            const id = w.aix_id ? "@" + w.aix_id : "—";
+            const rep = w.reputation || 0;
+            const medals = w.medals || 0;
+            const repStr = medals ? `<span class="badge rare">${rep} 🏅${medals}</span>` : "";
+            const locked = w.locked_aix > 0 ? `<div class="balance-locked">🔒 ${fmt(w.locked_aix)} AIX</div>` : "";
+            return `<div class="wallet-row">
+                <div class="avatar">${avatar}</div>
+                <div class="wallet-info">
+                    <div class="wallet-name">${w.name} <span style="color:var(--muted);font-size:12px;">${id}</span>${repStr}</div>
+                    <div class="wallet-addr">${w.address}</div>
+                </div>
+                <div class="balance"><div class="balance-value">${fmt(w.balance_aix)}</div>${locked}</div>
+            </div>`;
+        }).join("");
+        const opts = d.wallets.map(w => `<option value="${w.name}">${w.name}</option>`).join("");
+        $("send-sender").innerHTML = opts;
+        $("swap-wallet").innerHTML = opts;
+        $("poc-wallet").innerHTML = opts;
+    } catch (e) {
+        $("wallets-list").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`;
+    }
+}
+
+async function refreshMedals() {
+    try {
+        const lb = await apiGet("/sbt/leaderboard");
+        const el = $("medals-list");
+        if (!lb.top.length) { el.innerHTML = '<div class="empty">Пока никого</div>'; return; }
+        el.innerHTML = lb.top.map((e, i) => {
+            const name = e.name ? "@" + e.name : e.address.slice(0, 24) + "...";
+            const av = e.avatar || "👤";
+            return `<div class="wallet-row">
+                <div class="avatar">${["🥇","🥈","🥉"][i] || (i+1)}</div>
+                <div class="wallet-info">
+                    <div class="wallet-name">${av} ${name}</div>
+                    <div class="wallet-addr">${e.medals} медалей</div>
+                </div>
+                <div class="balance"><div class="balance-value">${e.reputation}</div><div class="balance-locked">репутация</div></div>
+            </div>`;
+        }).join("");
+    } catch (e) { $("medals-list").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`; }
+}
+
+async function refreshContacts() {
+    try {
+        const d = await apiGet("/contacts/stats");
+        const el = $("contacts-list");
+        if (!d.total_contacts) { el.innerHTML = '<div class="empty">Никто ещё не зарегистрировал номер</div>'; return; }
+        el.innerHTML = `<div class="grid">
+            <div class="stat"><div class="label">Контактов</div><div class="value">${d.total_contacts}</div></div>
+            <div class="stat"><div class="label">Адресов</div><div class="value">${d.unique_addresses}</div></div>
+        </div>`;
+    } catch (e) { $("contacts-list").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`; }
+}
+
+async function refreshArtifacts() {
+    try {
+        const d = await apiGet("/burn/stats");
+        const el = $("artifacts-list");
+        if (!d.total_artifacts) { el.innerHTML = '<div class="empty">Никто ещё не сжигал AIX</div>'; return; }
+        let html = `<div class="grid">
+            <div class="stat"><div class="label">Артефактов</div><div class="value">${d.total_artifacts}</div></div>
+            <div class="stat"><div class="label">Сожжено AIX</div><div class="value">${fmt(d.total_burned_aix)}</div></div>
+        </div>`;
+        for (const [level, info] of Object.entries(d.by_level)) {
+            html += `<div class="wallet-row">
+                <div class="avatar">${info.emoji}</div>
+                <div class="wallet-info"><div class="wallet-name">${info.name} <span class="badge ${info.rarity}">${info.rarity}</span></div>
+                <div class="wallet-addr">${info.price_aix} AIX</div></div>
+                <div class="balance"><div class="balance-value">${info.issued}</div></div>
+            </div>`;
+        }
+        el.innerHTML = html;
+    } catch (e) { $("artifacts-list").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`; }
+}
+
+async function sendMoney() {
+    const btn = $("send-btn"), res = $("send-result");
+    const senderName = $("send-sender").value;
+    const recipient = $("send-recipient").value.trim();
+    const amount = parseFloat($("send-amount").value);
+    const message = $("send-message").value;
+    const privkey = $("send-privkey").value.trim();
+    res.className = "result";
+    if (!senderName || !recipient || !amount || !privkey) {
+        res.classList.add("show","error"); res.textContent = "❌ Заполни все поля"; return;
+    }
+    btn.disabled = true; res.classList.add("show"); res.textContent = "⏳ Отправка...";
+    try {
+        const wd = await apiGet("/wallets");
+        const sender = wd.wallets.find(w => w.name === senderName);
+        if (!sender) throw new Error("Кошелёк не найден");
+        const d = await apiPost("/send", {
+            sender: sender.address, recipient: recipient,
+            amount: 0, amount_aix: amount,
+            private_key: privkey, message: message,
+        });
+        res.textContent = `✅ Транзакция принята\nTX: ${d.tx_id}\nКому: ${d.recipient_resolved}`;
+        const miner = wd.wallets.find(w => w.name === "miner");
+        if (miner) setTimeout(async () => {
+            try { await apiPost("/mine", {miner_address:miner.address, broadcast:true});
+                  res.textContent += "\n\n⛏️ Блок замайнен"; refreshAll(); } catch(e){}
+        }, 1000);
+    } catch (e) { res.classList.add("error"); res.textContent = "❌ " + e.message; }
+    finally { btn.disabled = false; }
+}
+
+// SWAP
+async function refreshSwapAll() {
+    await refreshSwapBalances();
+    await refreshPools();
+    await loadSwapTokens();
+}
+async function loadSwapTokens() {
+    try {
+        const d = await apiGet("/swap/tokens");
+        const tokens = Object.keys(d.tokens);
+        SIM_TOKENS_LIST = tokens;
+        const opts = tokens.map(t => `<option value="${t}">${d.tokens[t].emoji} ${t}</option>`).join("");
+        $("swap-from-token").innerHTML = opts;
+        $("swap-to-token").innerHTML = opts;
+        $("swap-from-token").value = "USDT-SIM";
+        $("swap-to-token").value = "AIX-SIM";
+    } catch (e) {}
+}
+async function refreshSwapBalances() {
+    const wn = $("swap-wallet").value;
+    if (!wn) { $("sim-balances").innerHTML = '<div class="empty">Выберите кошелёк</div>'; return; }
+    const w = currentWallets.find(x => x.name === wn);
+    if (!w) return;
+    try {
+        const d = await apiGet(`/swap/balances/${w.address}`);
+        const bals = d.balances || {};
+        const hasAny = Object.values(bals).some(b => b > 0);
+        if (!hasAny) { $("sim-balances").innerHTML = '<div class="empty">Пусто.</div>'; return; }
+        let html = "";
+        for (const t of SIM_TOKENS_LIST) {
+            const bal = (bals[t] || 0) / 1e18;
+            if (bal > 0) html += `<div class="sim-balance-row"><span>${t}</span><strong style="color:var(--green);">${fmtToken(bal)}</strong></div>`;
+        }
+        $("sim-balances").innerHTML = html || '<div class="empty">Нули</div>';
+    } catch (e) { $("sim-balances").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`; }
+}
+async function faucet(token) {
+    const wn = $("swap-wallet").value;
+    if (!wn) { alert("Выберите кошелёк"); return; }
+    const w = currentWallets.find(x => x.name === wn);
+    if (!w) return;
+    const res = $("faucet-result");
+    res.className = "result show"; res.textContent = `⏳ ${token}...`;
+    try {
+        const d = await apiPost("/swap/faucet", {address:w.address, token});
+        res.textContent = `✅ +${d.amount_aix} ${token}\nБаланс: ${d.balance_after}`;
+        await refreshSwapBalances();
+    } catch (e) { res.classList.add("error"); res.textContent = "❌ " + e.message; }
+}
+async function refreshPools() {
+    try {
+        const d = await apiGet("/swap/pools");
+        currentPools = d.pools;
+        $("pools-count").textContent = d.count;
+        const el = $("pools-list");
+        if (!d.pools.length) { el.innerHTML = '<div class="empty">Пулов нет</div>'; return; }
+        el.innerHTML = d.pools.map(p => `
+            <div class="pool-card">
+                <div class="pool-header"><div class="pool-id">${p.id}</div>
+                <span style="color:var(--muted); font-size:12px;">fee ${p.fee_percent}%</span></div>
+                <div class="pool-stats">
+                    <div><div class="pool-stat-label">Резерв A</div><div class="pool-stat-value">${fmtToken(p.reserve_a)} ${p.token_a}</div></div>
+                    <div><div class="pool-stat-label">Резерв B</div><div class="pool-stat-value">${fmtToken(p.reserve_b)} ${p.token_b}</div></div>
+                    <div><div class="pool-stat-label">Курс A→B</div><div class="pool-stat-value">${p.price_a_in_b.toFixed(6)}</div></div>
+                    <div><div class="pool-stat-label">Курс B→A</div><div class="pool-stat-value">${p.price_b_in_a.toFixed(6)}</div></div>
+                    <div><div class="pool-stat-label">LP</div><div class="pool-stat-value">${fmtToken(p.total_lp)}</div></div>
+                </div>
+            </div>
+        `).join("");
+    } catch (e) { $("pools-list").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`; }
+}
+async function updateQuote() {
+    const ft = $("swap-from-token").value, tt = $("swap-to-token").value;
+    const amt = parseFloat($("swap-amount").value);
+    if (!amt || amt <= 0 || !currentPools.length) { $("quote-box").style.display="none"; $("swap-btn").disabled=true; return; }
+    const pool = currentPools.find(p => (p.token_a===ft && p.token_b===tt) || (p.token_b===ft && p.token_a===tt));
+    if (!pool) { $("quote-box").style.display="none"; $("swap-btn").disabled=true; return; }
+    try {
+        const q = await apiPost("/swap/quote", {pool_id:pool.id, from_token:ft, amount_in_aix:amt});
+        $("quote-box").style.display = "block";
+        $("quote-out").textContent = `${fmtToken(q.amount_out_aix)} ${q.to_token}`;
+        $("quote-price").textContent = `1 ${q.from_token} = ${q.execution_price.toFixed(6)} ${q.to_token}`;
+        $("quote-slip").textContent = `${q.slippage_percent.toFixed(4)}%`;
+        $("swap-btn").disabled = false;
+    } catch (e) { $("quote-box").style.display="none"; $("swap-btn").disabled=true; }
+}
+async function executeSwap() {
+    const wn = $("swap-wallet").value;
+    const ft = $("swap-from-token").value, tt = $("swap-to-token").value;
+    const amt = parseFloat($("swap-amount").value);
+    const res = $("swap-result");
+    if (!wn || !amt || amt <= 0) { res.className="result error show"; res.textContent="❌ Заполни"; return; }
+    const w = currentWallets.find(x => x.name === wn);
+    const pool = currentPools.find(p => (p.token_a===ft && p.token_b===tt) || (p.token_b===ft && p.token_a===tt));
+    if (!pool) { res.className="result error show"; res.textContent="❌ Нет пула"; return; }
+    const btn = $("swap-btn"); btn.disabled = true;
+    res.className = "result show"; res.textContent = "⏳ Обмен...";
+    try {
+        const d = await apiPost("/swap/execute", {
+            pool_id:pool.id, address:w.address, from_token:ft, amount_in_aix:amt,
+        });
+        res.textContent = `✅ Обмен выполнен!\n\nОтдано:   ${fmtToken(d.amount_in_aix)} ${d.from_token}\nПолучено: ${fmtToken(d.amount_out_aix)} ${d.to_token}\nSlippage: ${d.slippage_percent.toFixed(4)}%`;
+        await refreshSwapBalances(); await refreshPools();
+        $("swap-amount").value = ""; $("quote-box").style.display = "none";
+    } catch (e) { res.classList.add("error"); res.textContent = "❌ " + e.message; }
+    finally { btn.disabled = false; }
+}
+
+// POC
+async function refreshPocAll() {
+    await loadPocCategories();
+    await loadPocPool();
+    await loadPocLeaderboard();
+    await loadPocByStatus("pending");
+}
+async function loadPocCategories() {
+    try {
+        const d = await apiGet("/poc/categories");
+        CATEGORIES_LIST = Object.entries(d.categories).map(([code, info]) => ({code, ...info}));
+        $("poc-category").innerHTML = CATEGORIES_LIST.map(c => `<option value="${c.code}">${c.emoji} ${c.title}</option>`).join("");
+    } catch (e) {}
+}
+async function loadPocPool() {
+    try {
+        const d = await apiGet("/poc/pool");
+        $("poc-pool-balance").textContent = fmt(d.balance_aix) + " AIX";
+        $("poc-pool-donated").textContent = fmt(d.total_donated_aix) + " AIX";
+        $("poc-pool-paid").textContent = fmt(d.total_paid_aix) + " AIX";
+    } catch (e) {}
+    try {
+        const s = await apiGet("/poc/stats");
+        $("poc-pool-count").textContent = s.total_contributions;
+    } catch (e) {}
+}
+async function loadPocLeaderboard() {
+    try {
+        const d = await apiGet("/poc/leaderboard");
+        const el = $("poc-leaderboard");
+        if (!d.top.length) { el.innerHTML = '<div class="empty">Пока никого</div>'; return; }
+        el.innerHTML = d.top.map((e, i) => {
+            const name = e.name ? "@" + e.name : e.address.slice(0, 24) + "...";
+            const av = e.avatar || "👤";
+            return `<div class="wallet-row">
+                <div class="avatar">${["🥇","🥈","🥉"][i] || (i+1)}</div>
+                <div class="wallet-info">
+                    <div class="wallet-name">${av} ${name}</div>
+                    <div class="wallet-addr">${e.contributions} вкладов, оплачено: ${e.paid}</div>
+                </div>
+                <div class="balance"><div class="balance-value">${fmt(e.reward_aix)}</div><div class="balance-locked">AIX награда</div></div>
+            </div>`;
+        }).join("");
+    } catch (e) {}
+}
+async function loadPocByStatus(status) {
+    try {
+        const d = await apiGet(`/poc/status/${status}`);
+        renderPocList(d.contributions);
+    } catch (e) { $("poc-list").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`; }
+}
+async function loadPocAll() {
+    try {
+        const d = await apiGet("/poc/all");
+        renderPocList(d.contributions);
+    } catch (e) { $("poc-list").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`; }
+}
+function renderPocList(contributions) {
+    const el = $("poc-list");
+    if (!contributions.length) { el.innerHTML = '<div class="empty">Нет вкладов</div>'; return; }
+    el.innerHTML = contributions.map(c => {
+        const statusClass = "status-" + c.status;
+        const reward = c.requested_reward / 1e18;
+        const confirmations = c.confirmations.length + "/" + c.required_confirmations;
+        let actions = "";
+        if (c.status === "pending") {
+            actions = `<button class="secondary small" onclick="pocConfirm('${c.id}')">✅ Подтвердить</button>
+                       <button class="red small" onclick="pocReject('${c.id}')">❌ Отклонить</button>`;
+        } else if (c.status === "confirmed") {
+            actions = `<button class="green small" onclick="pocPay('${c.id}')">💰 Выплатить</button>`;
+        }
+        return `<div class="poc-row">
+            <div class="poc-info">
+                <div class="poc-title">${c.title} <span class="status-badge ${statusClass}">${c.status}</span></div>
+                <div class="poc-meta">${c.id} · ${c.category} · ${reward.toFixed(2)} AIX · подтв. ${confirmations} · ${c.contributor.slice(0,16)}...</div>
+            </div>
+            <div class="poc-actions">${actions}</div>
+        </div>`;
+    }).join("");
+}
+async function pocDonate() {
+    const wn = $("poc-wallet").value;
+    if (!wn) { alert("Выберите кошелёк"); return; }
+    const w = currentWallets.find(x => x.name === wn);
+    const amt = parseFloat($("poc-donate-amount").value);
+    const res = $("poc-donate-result");
+    if (!amt || amt <= 0) { res.className="result error show"; res.textContent="❌ Сумма"; return; }
+    res.className = "result show"; res.textContent = "⏳ Донат...";
+    try {
+        const d = await apiPost("/poc/donate", {address:w.address, amount_aix:amt});
+        res.textContent = `✅ Донат принят\nTX: ${d.tx_id.slice(0,32)}...\nФонд: ${fmt(d.pool_balance_aix)} AIX`;
+        $("poc-donate-amount").value = "";
+        await loadPocPool();
+        // Автомайн, если есть miner
+        const miner = currentWallets.find(x => x.name === "miner");
+        if (miner) setTimeout(async () => {
+            try { await apiPost("/mine", {miner_address:miner.address, broadcast:true}); } catch(e){}
+        }, 500);
+    } catch (e) { res.classList.add("error"); res.textContent = "❌ " + e.message; }
+}
+async function pocSubmit() {
+    const wn = $("poc-wallet").value;
+    if (!wn) { alert("Выберите кошелёк"); return; }
+    const w = currentWallets.find(x => x.name === wn);
+    const category = $("poc-category").value;
+    const title = $("poc-title").value.trim();
+    const description = $("poc-desc").value.trim();
+    const reward = parseFloat($("poc-reward").value);
+    const proof = $("poc-proof").value.trim();
+    const res = $("poc-submit-result");
+    if (!title || !description || !reward) {
+        res.className = "result error show"; res.textContent = "❌ Заполни все поля"; return;
+    }
+    res.className = "result show"; res.textContent = "⏳ Создание...";
+    try {
+        const d = await apiPost("/poc/submit", {
+            contributor: w.address, category, title, description,
+            requested_reward_aix: reward, proof_url: proof,
+        });
+        res.textContent = `✅ Вклад создан!\nID: ${d.id}\nУровень: ${d.reward_level}\nНужно подтв.: ${d.required_confirmations}`;
+        $("poc-title").value = ""; $("poc-desc").value = ""; $("poc-reward").value = ""; $("poc-proof").value = "";
+        await loadPocByStatus("pending");
+        await loadPocPool();
+    } catch (e) { res.classList.add("error"); res.textContent = "❌ " + e.message; }
+}
+async function pocConfirm(id) {
+    const wn = $("poc-wallet").value;
+    if (!wn) { alert("Выберите кошелёк ревьюера"); return; }
+    const w = currentWallets.find(x => x.name === wn);
+    if (!confirm(`Подтвердить вклад ${id} от @${wn}?`)) return;
+    try {
+        const d = await apiPost("/poc/confirm", {contribution_id:id, reviewer:w.address});
+        alert(`✅ Подтверждено\nПрогресс: ${d.confirmations}/${d.required}\nСтатус: ${d.contribution_status}`);
+        await loadPocByStatus("pending");
+        await loadPocByStatus("confirmed");
+        await loadPocPool();
+    } catch (e) { alert("❌ " + e.message); }
+}
+async function pocReject(id) {
+    const wn = $("poc-wallet").value;
+    if (!wn) { alert("Выберите кошелёк ревьюера"); return; }
+    const w = currentWallets.find(x => x.name === wn);
+    const reason = prompt("Причина отклонения (опционально):") || "";
+    try {
+        await apiPost("/poc/reject", {contribution_id:id, reviewer:w.address, reason});
+        alert("✅ Отклонено");
+        await loadPocByStatus("pending");
+    } catch (e) { alert("❌ " + e.message); }
+}
+async function pocPay(id) {
+    if (!confirm(`Выплатить награду за ${id}?`)) return;
+    try {
+        const d = await apiPost("/poc/pay", {contribution_id:id});
+        alert(`✅ Выплачено\nTX: ${d.tx_id.slice(0,32)}...\nФонд: ${fmt(d.pool_balance_aix)} AIX`);
+        await loadPocByStatus("confirmed");
+        await loadPocByStatus("paid");
+        await loadPocPool();
+        await loadPocLeaderboard();
+        // Автомайн
+        const miner = currentWallets.find(x => x.name === "miner");
+        if (miner) setTimeout(async () => {
+            try { await apiPost("/mine", {miner_address:miner.address, broadcast:true}); refreshAll(); } catch(e){}
+        }, 500);
+    } catch (e) { alert("❌ " + e.message); }
+}
+
+// Listeners
+document.addEventListener("DOMContentLoaded", () => {
+    $("swap-from-token").addEventListener("change", updateQuote);
+    $("swap-to-token").addEventListener("change", updateQuote);
+    $("swap-wallet").addEventListener("change", refreshSwapBalances);
+    $("poc-wallet").addEventListener("change", () => {});
+});
+
+async function refreshAll() {
+    await refreshStatus();
+    await refreshWallets();
+    await refreshMedals();
+    await refreshContacts();
+    await refreshArtifacts();
+}
+
+refreshAll();
+setInterval(refreshStatus, 5000);
+</script>
+</body>
+</html>
