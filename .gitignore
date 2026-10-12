@@ -206,3 +206,7 @@ test_*.py
 # Игнорируем вывод отладки
 debug_*.txt
 debug_*.log
+# AI dump files
+AIX_OS_FULL_DUMP.txt
+SESSION_LOG.txt
+data/*.bak
