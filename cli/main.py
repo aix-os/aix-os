@@ -18,6 +18,7 @@ from core.protocols.ai_memory import (
     KIND_EMOJI, PRIORITY_EMOJI,
 )
 from core.governance.dao import DAOManager
+from core.protocols.faucet import FaucetManager
 
 colorama_init(autoreset=True)
 storage = ChainStorage(config.CHAIN_DB_PATH)
@@ -2195,6 +2196,67 @@ def cmd_brain_send(a):
 
 
 # =============================================================================
+# FAUCET
+# =============================================================================
+
+def _faucet_path(port: int = 8010) -> str:
+    import config as _cfg
+    return str(_cfg.DATA_DIR / f"faucet_{port}.json")
+
+
+def cmd_faucet_stats(a):
+    url = _node_url(a)
+    d = _node_get(url, "/faucet/stats")
+    if not d:
+        print(f"{Fore.RED}Нода {url} не отвечает"); return 1
+    print(f"{Fore.CYAN}AIX Faucet -- статистика")
+    print(f"   Казначей:        {Fore.YELLOW}{d.get('treasury') or '(не назначен)'}")
+    print(f"   Выдача:          {Fore.YELLOW}{d.get('amount_per_claim_aix')} AIX")
+    print(f"   Cooldown IP:     {d.get('cooldown_ip_hours')} ч")
+    print(f"   Лимит/час:       {d.get('hourly_limit')}")
+    print(f"   Всего выдач:     {Fore.YELLOW}{d.get('total_claims', 0)}")
+    print(f"   Всего отдано:    {Fore.YELLOW}{d.get('total_sent_aix', 0)} AIX")
+    print(f"   За последний час: {d.get('claims_last_hour', 0)}")
+    print(f"   За 24 часа:       {d.get('claims_last_24h', 0)}")
+    return 0
+
+
+def cmd_faucet_log(a):
+    url = _node_url(a)
+    limit = getattr(a, "limit", 50) or 50
+    d = _node_get(url, f"/faucet/log?limit={limit}")
+    if not d:
+        print(f"{Fore.RED}Нода {url} не отвечает"); return 1
+    entries = d.get("entries", [])
+    print(f"{Fore.CYAN}AIX Faucet -- журнал (последние {len(entries)}):")
+    if not entries:
+        print(f"   {Fore.YELLOW}Пока пусто.")
+        return 0
+    rows = []
+    for e in entries:
+        rows.append([
+            time.strftime("%Y-%m-%d %H:%M", time.localtime(e.get("ts", 0))),
+            (e.get("address", "")[:24] + "...") if len(e.get("address", "")) > 24 else e.get("address", ""),
+            e.get("amount_aix", 0),
+            (e.get("tx_id", "")[:16] + "...") if e.get("tx_id") else "",
+        ])
+    print(tabulate(rows, headers=["Время", "Адрес", "AIX", "TX"],
+                   tablefmt="rounded_outline"))
+    return 0
+
+
+def cmd_faucet_set_treasury(a):
+    import config as _cfg
+    path = _cfg.DATA_DIR / "faucet_8010.json"
+    mgr = FaucetManager(path)
+    mgr.set_treasury(a.wallet)
+    print(f"{Fore.GREEN}Казначей назначен: {a.wallet}")
+    print(f"   Файл: {path}")
+    print(f"   {Fore.YELLOW}Не забудь перезапустить ноды, чтобы казначей подхватился.")
+    return 0
+
+
+# =============================================================================
 # ГЛАВНАЯ
 # =============================================================================
 
@@ -2506,6 +2568,22 @@ def main():
     pbs.add_argument("amount", type=float, help="Сумма в AIX")
     pbs.add_argument("--message", "-m", default="")
     pbs.set_defaults(func=cmd_brain_send)
+
+    # FAUCET
+    pf = sub.add_parser("faucet", help="AIX Faucet (кран)")
+    pf.add_argument("--node", default=DEFAULT_NODE)
+    fsub = pf.add_subparsers(dest="faucet_cmd", required=True)
+
+    fsub.add_parser("stats", help="Статистика крана").set_defaults(
+        func=cmd_faucet_stats)
+
+    flog = fsub.add_parser("log", help="Журнал выдач")
+    flog.add_argument("--limit", "-n", type=int, default=50)
+    flog.set_defaults(func=cmd_faucet_log)
+
+    fst = fsub.add_parser("set-treasury", help="Назначить кошелёк-казначей")
+    fst.add_argument("wallet", help="Имя кошелька-казначея")
+    fst.set_defaults(func=cmd_faucet_set_treasury)
 
     args = p.parse_args()
     return args.func(args)

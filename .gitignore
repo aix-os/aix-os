@@ -7,16 +7,22 @@
 # КРИТИЧНО: приватные ключи и кошельки
 # НИКОГДА не публикуй эти файлы — иначе потеряешь все средства
 # =============================================================================
-data/
+data/wallets/
+data/wallets/*.json
 *.wallet
 *.wallet.json
 *.key
 *.priv
 *.pem
+*.seed
+seed.txt
+mnemonic.txt
 
 # =============================================================================
 # Данные блокчейна (личные для каждой ноды)
 # =============================================================================
+data/
+!data/wallets/README.md
 data/*.json
 data/chain*.json
 data/chain*.db
@@ -31,6 +37,11 @@ data/ids_*.json
 data/burn_*.json
 data/contacts_*.json
 data/peers_*.json
+data/dao_*.json
+data/faucet_*.json
+data/ai_memory.json
+data/*.tmp
+data/*.bak
 
 # =============================================================================
 # Бэкапы (личные данные)
@@ -41,9 +52,27 @@ data_backup*
 *_broken_backup*
 *.backup
 *.bak
+*.bak2
+*.bak3
+*.bak4
+*.bak5
 
 # =============================================================================
-# QR-коды и личные картинки (но НЕ логотипы и иконки сайта)
+# Логи, дампы, отладка
+# =============================================================================
+*.log
+logs/
+debug_*.txt
+debug_*.log
+AIX_OS_FULL_DUMP.txt
+SESSION_LOG.txt
+AI_BRIEF.md
+AI_BRIEF.json
+AI_BRIEF_FULL.md
+CONTEXT_UPDATE.md
+
+# =============================================================================
+# QR-коды и личные картинки (но НЕ иконки сайта)
 # =============================================================================
 *.png
 *.jpg
@@ -52,7 +81,7 @@ data_backup*
 *.bmp
 *.svg
 *.ico
-# Исключения — пропускаем нужные картинки сайта
+# Исключения — иконки лендинга, промо, README
 !web/landing/*.svg
 !web/landing/*.png
 !web/landing/*.ico
@@ -64,7 +93,10 @@ data_backup*
 !docs/*.png
 !docs/*.jpg
 !docs/*.svg
+!docs/promo.mp4
+!docs/promo_poster.png
 !README*.png
+!mobile/flutter_app/assets/**
 
 # =============================================================================
 # Python
@@ -137,16 +169,7 @@ Thumbs.db
 desktop.ini
 
 # =============================================================================
-# Логи и временные файлы
-# =============================================================================
-*.log
-*.tmp
-logs/
-temp/
-tmp/
-
-# =============================================================================
-# Node.js (для мобилки и веба)
+# Node.js
 # =============================================================================
 node_modules/
 package-lock.json
@@ -155,7 +178,7 @@ yarn.lock
 .yarn
 
 # =============================================================================
-# Flutter / Dart (мобильное приложение)
+# Flutter / Dart
 # =============================================================================
 mobile/flutter_app/.dart_tool/
 mobile/flutter_app/build/
@@ -167,6 +190,10 @@ mobile/flutter_app/ios/Pods/
 mobile/flutter_app/android/.gradle/
 mobile/flutter_app/android/app/build/
 mobile/flutter_app/android/local.properties
+mobile/flutter_app/windows/flutter/ephemeral/
+mobile/flutter_app/linux/flutter/ephemeral/
+mobile/flutter_app/macos/Flutter/ephemeral/
+mobile/flutter_app/e2e_out/
 
 # =============================================================================
 # Tauri (десктоп)
@@ -183,6 +210,8 @@ desktop/tauri_app/Cargo.lock
 *.secret
 secrets/
 !.env.example
+config_local.py
+config.local.py
 
 # =============================================================================
 # Docker
@@ -198,29 +227,6 @@ secrets/
 # =============================================================================
 # AIX OS специфика
 # =============================================================================
-config_local.py
-config.local.py
-
-# Игнорируем тестовые скрипты в корне (но НЕ в tests/)
 test_*.py
 *_test.py
 !tests/test_*.py
-
-# Логи отладки
-debug_*.txt
-debug_*.log
-AIX_OS_FULL_DUMP.txt
-SESSION_LOG.txt
-data/*.bak
-
-# AI Memory local
-AI_BRIEF.md
-AI_BRIEF.json
-AI_BRIEF_FULL.md
-data/ai_memory.json
-
-# Прочие бэкапы сессий
-*.bak2
-*.bak3
-*.bak4
-*.ps1.bak

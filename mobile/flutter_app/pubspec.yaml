@@ -11,15 +11,23 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
 
-  # AIX OS Mobile
-  http: ^1.2.2                      # REST API
-  provider: ^6.1.2                  # Управление состоянием
-  shared_preferences: ^2.3.2        # Локальное хранилище
-  flutter_secure_storage: ^9.2.2    # Безопасное хранилище ключей
-  mobile_scanner: ^5.2.3            # QR-сканер
-  qr_flutter: ^4.1.0                # Генерация QR
-  intl: ^0.19.0                     # Форматирование
-  url_launcher: ^6.3.0              # Открытие ссылок
+  # === UI и связь ===
+  http: ^1.2.2
+  provider: ^6.1.2
+  shared_preferences: ^2.3.2
+  flutter_secure_storage: ^9.2.2
+  mobile_scanner: ^5.2.3
+  qr_flutter: ^4.1.0
+  intl: ^0.19.0
+  url_launcher: ^6.3.0
+  file_picker: ^8.1.7
+  path_provider: ^2.1.5
+  share_plus: ^10.1.2
+
+  # === Криптография ===
+  pointycastle: ^4.0.0
+  crypto: ^3.0.7
+  base58check: ^2.0.0
 
 dev_dependencies:
   flutter_test:

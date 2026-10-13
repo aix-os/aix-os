@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIX Faucet — получи 10 AIX бесплатно</title>
+<meta name="description" content="AIX OS Faucet. Получи первые 10 AIX бесплатно, чтобы попробовать систему.">
+<link rel="icon" type="image/svg+xml" href="/landing/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/landing/favicon.ico">
+<link rel="apple-touch-icon" href="/landing/apple-touch-icon.png">
+<meta name="theme-color" content="#0A0E27">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --cosmos: #0A0E27; --cosmos2: #131A3A; --neon: #00F0FF; --purple: #8B00FF;
+  --gold: #FFD700; --green: #00FF88; --red: #FF3366;
+  --text: #E0E8FF; --muted: #6B7CA8;
+}
+body {
+  background: var(--cosmos); color: var(--text);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.6; min-height: 100vh; padding: 40px 20px;
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(139,0,255,0.18) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(0,240,255,0.12) 0%, transparent 45%);
+  background-attachment: fixed;
+}
+.container { max-width: 640px; margin: 0 auto; }
+.logo { text-align: center; font-size: 28px; font-weight: 800;
+        color: var(--gold); letter-spacing: 2px; margin-bottom: 8px; }
+.logo .bolt { color: var(--neon); }
+.back { text-align: center; margin-bottom: 30px; }
+.back a { color: var(--muted); font-size: 13px; text-decoration: none; }
+.back a:hover { color: var(--neon); }
+h1 {
+  font-size: 36px; font-weight: 800; text-align: center;
+  margin-bottom: 8px; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #fff 0%, var(--gold) 40%, var(--neon) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.subtitle { text-align: center; color: var(--muted);
+            font-size: 15px; margin-bottom: 30px; }
+
+.card {
+  background: rgba(19,26,58,0.7);
+  border: 1px solid rgba(0,240,255,0.2);
+  border-radius: 18px; padding: 28px;
+}
+label { display: block; color: var(--muted); font-size: 12px;
+        text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+input {
+  width: 100%; padding: 14px 16px;
+  background: var(--cosmos);
+  border: 1px solid rgba(0,240,255,0.3);
+  color: var(--text); border-radius: 10px;
+  font-family: 'Consolas', monospace; font-size: 14px;
+  outline: none; margin-bottom: 16px;
+  word-break: break-all;
+}
+input:focus { border-color: var(--neon);
+              box-shadow: 0 0 15px rgba(0,240,255,0.2); }
+button {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, var(--purple), var(--neon));
+  color: #fff; border: none; border-radius: 10px;
+  font-size: 15px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.5px;
+  text-transform: uppercase; transition: all 0.25s;
+}
+button:hover:not(:disabled) { transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0,240,255,0.3); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.result { padding: 14px 18px; border-radius: 10px;
+          margin-top: 18px; font-size: 14px;
+          display: none; white-space: pre-wrap;
+          word-break: break-all;
+          font-family: 'Consolas', monospace; }
+.result.show { display: block; }
+.result.ok { background: rgba(0,255,136,0.1);
+             border: 1px solid var(--green); color: var(--green); }
+.result.err { background: rgba(255,51,102,0.1);
+              border: 1px solid var(--red); color: var(--red); }
+.result.info { background: rgba(0,240,255,0.08);
+               border: 1px solid var(--neon); color: var(--neon); }
+
+.stats { margin-top: 30px; display: grid;
+         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+         gap: 12px; }
+.stat {
+  background: rgba(19,26,58,0.5);
+  border: 1px solid rgba(0,240,255,0.15);
+  border-radius: 12px; padding: 14px; text-align: center;
+}
+.stat .label { font-size: 10px; color: var(--muted);
+               text-transform: uppercase; letter-spacing: 1.5px;
+               margin-bottom: 4px; }
+.stat .value { font-size: 22px; font-weight: 800; color: var(--gold);
+               font-variant-numeric: tabular-nums; }
+
+.help { margin-top: 24px; padding: 16px;
+        background: rgba(0,240,255,0.05);
+        border-left: 3px solid var(--neon);
+        border-radius: 8px; font-size: 13px; color: var(--muted); }
+.help b { color: var(--text); }
+.help code {
+  background: #000; padding: 2px 8px; border-radius: 4px;
+  color: var(--neon); font-family: 'Consolas', monospace; font-size: 12px;
+}
+
+footer { text-align: center; padding: 40px 20px 20px;
+         color: var(--muted); font-size: 12px; }
+footer a { color: var(--muted); margin: 0 10px; }
+footer a:hover { color: var(--neon); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">AIX <span class="bolt">⚡</span> OS</div>
+  <div class="back"><a href="/">← Web Wallet</a></div>
+
+  <h1>Faucet</h1>
+  <p class="subtitle">Получи первые 10 AIX бесплатно — чтобы попробовать систему</p>
+
+  <div class="card">
+    <label>Твой AIX-адрес</label>
+    <input id="addr" type="text" placeholder="AIXTA5WAvDBAifiZuYfwfxM57Ajn8kGcG6xj2"
+           autocomplete="off" spellcheck="false">
+    <button id="btn" onclick="claim()">Получить 10 AIX</button>
+    <div class="result" id="result"></div>
+  </div>
+
+  <div class="stats" id="stats">
+    <div class="stat"><div class="label">Выдача</div><div class="value" id="s-amount">—</div></div>
+    <div class="stat"><div class="label">Всего выдач</div><div class="value" id="s-claims">—</div></div>
+    <div class="stat"><div class="label">Отдано AIX</div><div class="value" id="s-sent">—</div></div>
+  </div>
+
+  <div class="help">
+    <b>Где взять адрес?</b><br>
+    Открой CLI и создай кошелёк:<br>
+    <code>python cli/main.py wallet new мой-кошелёк</code><br>
+    Или зайди в <a href="/" style="color:var(--neon);">Web Wallet</a> → вкладка «Кошельки».
+    <br><br>
+    <b>Правила:</b> один адрес — один раз. Один IP — раз в 24 часа.
+  </div>
+
+  <footer>
+    <a href="/">Web Wallet</a>
+    <a href="/landing/">Лендинг</a>
+    <a href="https://github.com/aix-os/aix-os" target="_blank" rel="noopener">GitHub</a>
+  </footer>
+</div>
+
+<script>
+const NODE_URL = "http://127.0.0.1:8010";
+
+function fmtNum(n) {
+  if (typeof n !== "number") return "—";
+  return n.toLocaleString("ru-RU", {maximumFractionDigits: 2});
+}
+
+async function refreshStats() {
+  try {
+    const r = await fetch(NODE_URL + "/faucet/stats");
+    if (!r.ok) throw new Error("offline");
+    const s = await r.json();
+    document.getElementById("s-amount").textContent = s.amount_per_claim_aix;
+    document.getElementById("s-claims").textContent = s.total_claims;
+    document.getElementById("s-sent").textContent = fmtNum(s.total_sent_aix);
+  } catch (e) {
+    document.getElementById("s-amount").textContent = "—";
+    document.getElementById("s-claims").textContent = "—";
+    document.getElementById("s-sent").textContent = "—";
+  }
+}
+
+function setResult(text, kind) {
+  const el = document.getElementById("result");
+  el.className = "result show " + (kind || "info");
+  el.textContent = text;
+}
+
+async function claim() {
+  const btn = document.getElementById("btn");
+  const addr = document.getElementById("addr").value.trim();
+
+  if (!addr) {
+    setResult("Введи AIX-адрес", "err");
+    return;
+  }
+  if (!addr.startsWith("AIX") || addr.length < 30) {
+    setResult("Невалидный AIX-адрес (должен начинаться с AIX и содержать 30+ символов)", "err");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Отправка...";
+  setResult("Отправляем транзакцию...", "info");
+
+  try {
+    const r = await fetch(NODE_URL + "/faucet/claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: addr }),
+    });
+    const data = await r.json().catch(() => ({}));
+
+    if (!r.ok) {
+      setResult("Не удалось: " + (data.detail || "неизвестная ошибка"), "err");
+    } else {
+      const tx = (data.tx_id || "").slice(0, 32);
+      setResult(
+        "Получено " + data.amount_aix + " AIX!\n" +
+        "Кому: " + data.address + "\n" +
+        "TX:   " + tx + "...\n\n" +
+        "Замайни блок, чтобы транзакция подтвердилась:\n" +
+        "  .\\scripts\\mine_batch.ps1\n" +
+        "или\n" +
+        "  python cli/main.py node mine miner",
+        "ok"
+      );
+      document.getElementById("addr").value = "";
+    }
+  } catch (e) {
+    setResult("Ошибка соединения: " + e.message, "err");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Получить 10 AIX";
+    refreshStats();
+  }
+}
+
+// Enter = submit
+document.getElementById("addr").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") claim();
+});
+
+refreshStats();
+setInterval(refreshStats, 10000);
+</script>
+</body>
+</html>

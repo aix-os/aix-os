@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Request,  FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -54,6 +54,7 @@ from core.protocols.ai_memory import (
 from storage.db import ChainStorage
 from network.peer_manager import PeerManager
 from core.governance.dao import DAOManager
+from core.protocols.faucet import FaucetManager
 from ai.brain import BrainAgent, BrainConfig
 
 
@@ -86,6 +87,17 @@ class SyncBlockRequest(BaseModel):
 class SyncStateEventRequest(BaseModel):
     event: dict
     from_peer: str = ""
+
+
+class SubmitTxRequest(BaseModel):
+    sender: str
+    recipient: str
+    amount: int
+    timestamp: float
+    fee: int = 0
+    message: str = ""
+    public_key: str
+    signature: str
 
 class GiftCreateRequest(BaseModel):
     sender: str
@@ -258,6 +270,10 @@ class DAOCancelRequest(BaseModel):
     by: str
 
 
+class FaucetClaimRequest(BaseModel):
+    address: str
+
+
 class BrainAskRequest(BaseModel):
     message: str
     model: str | None = None
@@ -328,6 +344,40 @@ def create_app(port: int, data_file: str, self_url: str,
 
     dao_path = Path(data_file).parent / f"dao_{port}.json"
     dao_manager = DAOManager(dao_path, blockchain=blockchain, sbt_manager=sbt_manager, poc_manager=poc_manager)
+
+    faucet_path = Path(data_file).parent / f"faucet_{port}.json"
+    faucet_manager = FaucetManager(faucet_path, blockchain=blockchain)
+
+    # ---- Faucet helpers ----
+
+    def _faucet_wallet_loader(name: str):
+        """Загрузить кошелёк-казначей."""
+        return Wallet.load(name)
+
+    def _faucet_send(sender_addr: str, recipient: str,
+                     amount_aix: float, private_key_hex: str) -> str:
+        """Отправить AIX от казначея получателю. Возвращает tx_id."""
+        from crypto.keys import private_key_from_bytes
+        amount_raw = int(amount_aix * config.SATOSHI)
+        tx = Transaction(
+            sender=sender_addr,
+            recipient=recipient,
+            amount=amount_raw,
+            fee=0,
+            message="AIX faucet",
+        )
+        sk = private_key_from_bytes(bytes.fromhex(private_key_hex))
+        tx.sign_transaction(sk)
+        ok, msg = tx.is_valid()
+        if not ok:
+            raise ValueError(msg)
+        ok, msg = blockchain.mempool.add(tx)
+        if not ok:
+            raise ValueError(msg)
+        storage.save(blockchain)
+        peer_manager.broadcast_transaction(tx.to_dict())
+        return tx.tx_id()
+
 
     brain_config = BrainConfig.from_env()
 
@@ -1776,6 +1826,95 @@ def create_app(port: int, data_file: str, self_url: str,
         except Exception as e:
             raise HTTPException(500, f"Brain error: {e}")
         return {"status": "ok", "answer": answer, "model": cfg.model}
+
+    # =========================================================================
+    # FAUCET
+    # =========================================================================
+
+    @app.get("/faucet/stats")
+    def faucet_stats():
+        return faucet_manager.stats()
+
+    @app.get("/faucet/log")
+    def faucet_log(limit: int = 50):
+        return {
+            "count": faucet_manager.count(),
+            "entries": faucet_manager.log(limit=limit),
+        }
+
+    @app.post("/faucet/claim")
+    def faucet_claim(req: FaucetClaimRequest, request: Request):
+        # Определяем IP: прямой или через X-Forwarded-For (туннель)
+        ip = "?"
+        if request.client and request.client.host:
+            ip = request.client.host
+        xff = request.headers.get("x-forwarded-for", "")
+        if xff:
+            ip = xff.split(",")[0].strip()
+
+        ok, result = faucet_manager.claim(
+            address=req.address,
+            ip=ip,
+            wallet_loader=_faucet_wallet_loader,
+            sender=_faucet_send,
+        )
+        if not ok:
+            raise HTTPException(400, result.get("error", "не удалось"))
+        return result
+
+    # =========================================================================
+    # TRANSACTION SUBMIT (подписанная транзакция от кошелька)
+    # =========================================================================
+
+    @app.post("/tx/submit")
+    def tx_submit(req: SubmitTxRequest):
+        """
+        Принять подписанную транзакцию от кошелька (мобильного/десктопного).
+        Приватный ключ НЕ передаётся — только подпись и публичный ключ.
+        """
+        tx = Transaction(
+            sender=req.sender,
+            recipient=req.recipient,
+            amount=req.amount,
+            timestamp=req.timestamp,
+            fee=req.fee,
+            message=req.message,
+            public_key=req.public_key,
+            signature=req.signature,
+        )
+
+        ok, msg = tx.is_valid()
+        if not ok:
+            raise HTTPException(400, f"Транзакция невалидна: {msg}")
+
+        # Проверка баланса для обычных отправителей
+        if tx.sender not in ("COINBASE", "LOTTERY", "POC-POOL"):
+            balance = blockchain.get_balance(tx.sender)
+            locked = total_locked(tx.sender)
+            available = balance - locked
+            if available < tx.amount + tx.fee:
+                raise HTTPException(
+                    400,
+                    f"Недостаточно средств: доступно "
+                    f"{available / config.SATOSHI:.4f} AIX"
+                )
+
+        ok, msg = blockchain.mempool.add(tx)
+        if not ok:
+            raise HTTPException(400, msg)
+
+        storage.save(blockchain)
+        broadcast_count = peer_manager.broadcast_transaction(tx.to_dict())
+
+        return {
+            "status": "accepted",
+            "tx_id": tx.tx_id(),
+            "sender": tx.sender,
+            "recipient": tx.recipient,
+            "amount": tx.amount,
+            "mempool_size": blockchain.mempool.size(),
+            "broadcast_to_peers": broadcast_count,
+        }
 
     # =========================================================================
     # P2P

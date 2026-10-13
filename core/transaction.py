@@ -1,6 +1,8 @@
 """
 AIX OS — Транзакция.
 
+Комиссия: 0.1% от суммы. Идёт майнеру блока.
+
 Особые sender'ы:
 - "COINBASE"  — награда майнеру за блок
 - "LOTTERY"   — приз счастливого блока
@@ -9,6 +11,7 @@ AIX OS — Транзакция.
 Особые recipient'ы:
 - "BURN"      — сжигание монет
 - "POC-POOL"  — донат в фонд PoC
+- "TREASURY"  — комиссия в фонд проекта
 """
 
 import json
@@ -28,8 +31,18 @@ import ecdsa
 
 
 SYSTEM_SENDERS = {"COINBASE", "LOTTERY", "POC-POOL"}
-SYSTEM_RECIPIENTS = {"BURN", "POC-POOL"}
+SYSTEM_RECIPIENTS = {"BURN", "POC-POOL", "TREASURY"}
+
+# Комиссия сети: 0.1% от суммы перевода
+FEE_PERCENT = 0.1  # 0.1%
 MIN_FEE = 0
+
+
+def calculate_fee(amount: int) -> int:
+    """Считает комиссию с суммы. 0.1% от amount."""
+    if amount <= 0:
+        return 0
+    return amount * FEE_PERCENT // 100
 
 
 @dataclass
@@ -72,7 +85,6 @@ class Transaction:
         if self.sender in SYSTEM_SENDERS:
             if self.amount <= 0:
                 return False, f"{self.sender}-сумма должна быть положительной"
-            # Получатель может быть AIX-адресом или системным (BURN)
             if self.recipient not in SYSTEM_RECIPIENTS:
                 if not is_valid_address(self.recipient):
                     return False, "Невалидный адрес получателя"
@@ -112,6 +124,12 @@ class Transaction:
         if not verify(pub_bytes, signature, payload):
             return False, "Подпись недействительна"
 
+        # Минимальная комиссия: 0.1%
+        required_fee = calculate_fee(self.amount)
+        if self.fee < required_fee:
+            return False, (f"Комиссия слишком мала: нужно {required_fee} "
+                          f"({FEE_PERCENT}% от {self.amount}), указано {self.fee}")
+
         return True, "OK"
 
     def to_dict(self) -> dict:
@@ -144,6 +162,9 @@ class Transaction:
 
     def is_poc_donation(self) -> bool:
         return self.recipient == "POC-POOL"
+
+    def is_treasury(self) -> bool:
+        return self.recipient == "TREASURY"
 
     def __repr__(self) -> str:
         return f"Transaction({self.sender[:12]}... → {self.recipient[:12]}..., {self.amount})"

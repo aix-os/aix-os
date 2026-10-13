@@ -4,16 +4,25 @@ AIX OS — Ключи и подписи (ECDSA secp256k1).
 ПРИВАТНЫЙ ключ — секрет. Никогда никому не показывай.
 ПУБЛИЧНЫЙ ключ — можно показывать. Из него делается адрес.
 ПОДПИСЬ — доказательство, что транзакцию создал владелец приватного ключа.
+
+ВАЖНО (2026-10-13):
+- Хеш для подписи: SHA256 (явно). Раньше был дефолтный SHA1.
+- Формат подписи: DER (sigencode_der / sigdecode_der).
+  Совпадает с Dart/Flutter-кошельком и стандартом Bitcoin/SSH.
 """
 
+import hashlib
+
 import ecdsa
-import secrets
-from typing import Tuple
+from ecdsa.util import sigencode_der, sigdecode_der
 
 from .hash import sha256
 
 # Кривая secp256k1 — стандарт Bitcoin/Ethereum
 CURVE = ecdsa.SECP256k1
+
+# Хеш для подписи. Менять нельзя — сломает совместимость с Flutter.
+SIGN_HASHFUNC = hashlib.sha256
 
 
 def generate_private_key() -> ecdsa.SigningKey:
@@ -46,19 +55,32 @@ def get_public_key_bytes(sk: ecdsa.SigningKey) -> bytes:
 def sign(sk: ecdsa.SigningKey, message: bytes) -> bytes:
     """
     Подписать сообщение приватным ключом.
-    Возвращает подпись (обычно ~70–72 байта в DER-формате).
+
+    - hashfunc=sha256 — явно (совместимость с Dart).
+    - sigencode=sigencode_der — формат подписи DER (SEQUENCE из двух INTEGER).
     """
-    return sk.sign(message)
+    return sk.sign(
+        message,
+        hashfunc=SIGN_HASHFUNC,
+        sigencode=sigencode_der,
+    )
 
 
 def verify(pubkey_bytes: bytes, signature: bytes, message: bytes) -> bool:
     """
     Проверить, что подпись действительно сделана владельцем публичного ключа.
-    Возвращает True/False.
+
+    - hashfunc=sha256 — тот же, что в sign.
+    - sigdecode=sigdecode_der — читаем DER-подпись.
     """
     try:
         vk = ecdsa.VerifyingKey.from_string(pubkey_bytes, curve=CURVE)
-        return vk.verify(signature, message)
+        return vk.verify(
+            signature,
+            message,
+            hashfunc=SIGN_HASHFUNC,
+            sigdecode=sigdecode_der,
+        )
     except ecdsa.BadSignatureError:
         return False
     except Exception:
@@ -79,7 +101,7 @@ if __name__ == "__main__":
     # Тест подписи
     message = b"AIX: translate 100 AIX to Alice"
     signature = sign(sk, message)
-    print(f"Подпись:                  {signature.hex()[:64]}... ({len(signature)} байт)")
+    print(f"Подпись:                  {signature.hex()[:64]}... ({len(signature)} байт DER)")
 
     # Проверка
     is_valid = verify(pub_bytes, signature, message)
@@ -89,4 +111,4 @@ if __name__ == "__main__":
     is_valid_fake = verify(pub_bytes, signature, b"fake message")
     print(f"Проверка подделки:        {'❌ ПРОБЛЕМА' if is_valid_fake else '✅ Отклонена'}")
 
-    print("✅ Криптография ключей работает.")
+    print("✅ Криптография ключей работает (SHA256 + DER).")

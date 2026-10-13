@@ -25,7 +25,7 @@ ADDRESS_PREFIX = "AIX"
 # 💰 ТОКЕНОМИКА
 # =============================================================================
 
-MAX_SUPPLY = 21_000_000       # Максимум AIX (как Bitcoin — 21 млн)
+MAX_SUPPLY = 21000000000       # Максимум AIX (как Bitcoin — 21 млн)
 DECIMALS = 18                 # Знаков после запятой
 SATOSHI = 10 ** DECIMALS      # 1 AIX = 10^18 атомарных единиц
 
@@ -41,10 +41,10 @@ CHARITY_PERCENT = 0.01          # 1% транзакций идёт в AIX Kindne
 # ⛏️ МАЙНИНГ (Proof of Work)
 # =============================================================================
 
-INITIAL_DIFFICULTY = 4        # Стартовая сложность (кол-во нулей в хеше)
+INITIAL_DIFFICULTY = 1        # Стартовая сложность (кол-во нулей в хеше)
 DIFFICULTY_ADJUST_INTERVAL = 10  # Пересчёт сложности каждые N блоков
 MIN_DIFFICULTY = 1
-MAX_DIFFICULTY = 10           # Ограничение для MVP
+MAX_DIFFICULTY = 1           # Ограничение для MVP
 
 GENESIS_TIMESTAMP = 1735689600  # 2025-01-01 00:00:00 UTC
 GENESIS_MESSAGE = (
