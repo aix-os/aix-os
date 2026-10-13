@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <title>AIX OS — Web Wallet</title>
+<link rel="icon" type="image/svg+xml" href="/landing/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/landing/favicon.ico">
+<link rel="apple-touch-icon" href="/landing/apple-touch-icon.png">
+<meta name="theme-color" content="#0A0E27">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -115,6 +119,31 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
 .poc-title { font-size:14px; color:var(--gold); font-weight:600; }
 .poc-meta { font-size:12px; color:var(--muted); margin-top:3px; }
 .poc-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+#brain-health {
+  background:#0d1230; border:1px solid #1a2a55; border-radius:10px;
+  padding:14px; margin-bottom:14px; font-size:13px; line-height:1.8;
+}
+#brain-warn {
+  background:#2a1a05; border-left:3px solid #FFD700; padding:10px 14px;
+  border-radius:6px; margin-bottom:14px; font-size:13px;
+}
+#brain-quick { margin-bottom:14px; }
+#brain-quick button { padding:6px 12px; font-size:12px; margin-right:6px; margin-top:6px; text-transform:none; }
+#brain-chat {
+  background:#05081a; border:1px solid #1a2a55; border-radius:10px;
+  padding:14px; min-height:220px; max-height:520px; overflow-y:auto;
+  font-size:14px; line-height:1.7; margin-bottom:12px;
+}
+#brain-input {
+  flex:1; padding:12px; background:#0d1230; color:#fff;
+  border:1px solid #1a2a55; border-radius:8px; font-size:14px; margin-bottom:0;
+}
+#brain-send-btn { padding:12px 24px; background:#8B00FF; color:#fff;
+  border:none; border-radius:8px; cursor:pointer; font-weight:bold; text-transform:none; }
+#brain-reset-btn { padding:12px 16px; background:#1a2a55; color:#ccc;
+  border:none; border-radius:8px; cursor:pointer; }
+#brain-input-row { display:flex; gap:8px; margin-bottom:10px; }
 </style>
 </head>
 <body>
@@ -142,6 +171,7 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
         <div class="tab" data-tab="artifacts">🔥 Артефакты</div>
         <div class="tab" data-tab="ai">🧠 AI Memory</div>
         <div class="tab" data-tab="dao">🗳 DAO</div>
+        <div class="tab" data-tab="brain">🧠 Brain</div>
     </div>
 
     <div class="panel active" id="panel-overview">
@@ -363,6 +393,7 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
             <div id="ai-list"><div class="empty">Загрузка...</div></div>
         </div>
     </div>
+
     <div class="panel" id="panel-dao">
         <h2>🗳 DAO — Управление</h2>
         <div class="notice">Governance на базе PoC. Голос = репутация SBT. Кворум 30%, порог &gt;50%. Период 100 блоков, задержка 20 блоков.</div>
@@ -417,6 +448,53 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
             <div class="result" id="dao-action-result"></div>
         </div>
     </div>
+
+    <div class="panel" id="panel-brain">
+        <h2>🧠 AIX Brain</h2>
+        <p style="color:#888; font-size:13px; margin-top:-10px;">
+            Встроенный AI-напарник. Локальная модель. Ключи недосягаемы.
+        </p>
+
+        <div id="brain-health">
+            <span style="color:#888;">загрузка health…</span>
+        </div>
+
+        <div id="brain-warn">
+            <b style="color:#FFD700;">🔐 Безопасность:</b>
+            <span style="color:#ccc;">
+                Отправка AIX из браузера отключена. Для транзакций открой CLI:
+                <code style="background:#000; padding:2px 6px; border-radius:4px; color:#00F0FF;">
+                    aix brain send &lt;кошелёк&gt; &lt;кому&gt; &lt;сумма&gt;
+                </code>
+            </span>
+        </div>
+
+        <div id="brain-quick">
+            <span style="color:#888; font-size:12px;">Быстрые вопросы:</span><br>
+            <button class="secondary small brain-quick" data-q="Какая сейчас высота цепочки?">📊 статус</button>
+            <button class="secondary small brain-quick" data-q="Покажи баланс alice">💰 баланс</button>
+            <button class="secondary small brain-quick" data-q="Что нового в DAO?">🏛️ DAO</button>
+            <button class="secondary small brain-quick" data-q="Статистика Proof of Contribution">🧬 PoC</button>
+            <button class="secondary small brain-quick" data-q="Что ты помнишь о проекте?">🧠 память</button>
+        </div>
+
+        <div id="brain-chat">
+            <div style="color:#666; font-style:italic;">
+                Начни диалог — напиши вопрос ниже и нажми «Спросить».
+            </div>
+        </div>
+
+        <div id="brain-input-row">
+            <input id="brain-input" type="text" placeholder="Спроси что-нибудь у AIX OS…"
+                   onkeydown="if(event.key==='Enter' && !event.shiftKey) brainSend();">
+            <button id="brain-send-btn" onclick="brainSend()">Спросить</button>
+            <button id="brain-reset-btn" onclick="brainReset()" title="Очистить историю">⟳</button>
+        </div>
+
+        <div style="font-size:12px; color:#666; text-align:right;">
+            <span id="brain-model-label">—</span>
+        </div>
+    </div>
 </div>
 
 <footer>AIX OS v0.1.0-alpha · <span id="footer-url">localhost:8010</span> · Операционная система для жизни</footer>
@@ -458,11 +536,14 @@ document.querySelectorAll(".tab").forEach(t => {
         document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
         document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
         t.classList.add("active");
-        $("panel-" + t.dataset.tab).classList.add("active");
+        const pid = "panel-" + t.dataset.tab;
+        const pel = $(pid);
+        if (pel) pel.classList.add("active");
         if (t.dataset.tab === "swap") refreshSwapAll();
         if (t.dataset.tab === "poc") refreshPocAll();
         if (t.dataset.tab === "ai") refreshAi();
         if (t.dataset.tab === "dao") refreshDao();
+        if (t.dataset.tab === "brain") brainInit();
         if (t.dataset.tab === "overview") drawChainChart();
     });
 });
@@ -844,7 +925,6 @@ async function pocDonate() {
         res.textContent = `✅ Донат принят\nTX: ${d.tx_id.slice(0,32)}...\nФонд: ${fmt(d.pool_balance_aix)} AIX`;
         $("poc-donate-amount").value = "";
         await loadPocPool();
-        // Автомайн, если есть miner
         const miner = currentWallets.find(x => x.name === "miner");
         if (miner) setTimeout(async () => {
             try { await apiPost("/mine", {miner_address:miner.address, broadcast:true}); } catch(e){}
@@ -909,7 +989,6 @@ async function pocPay(id) {
         await loadPocByStatus("paid");
         await loadPocPool();
         await loadPocLeaderboard();
-        // Автомайн
         const miner = currentWallets.find(x => x.name === "miner");
         if (miner) setTimeout(async () => {
             try { await apiPost("/mine", {miner_address:miner.address, broadcast:true}); refreshAll(); } catch(e){}
@@ -917,7 +996,6 @@ async function pocPay(id) {
     } catch (e) { alert("❌ " + e.message); }
 }
 
-// AI MEMORY
 // DAO
 async function refreshDao() {
     try {
@@ -1080,12 +1158,13 @@ async function aiRemember() {
     } catch (e) { res.classList.add("error"); res.textContent = "❌ " + e.message; }
 }
 
-// Listeners
 document.addEventListener("DOMContentLoaded", () => {
-    $("swap-from-token").addEventListener("change", updateQuote);
-    $("swap-to-token").addEventListener("change", updateQuote);
-    $("swap-wallet").addEventListener("change", refreshSwapBalances);
-    $("poc-wallet").addEventListener("change", () => {});
+    const sft = $("swap-from-token");
+    const stt = $("swap-to-token");
+    const sw = $("swap-wallet");
+    if (sft) sft.addEventListener("change", updateQuote);
+    if (stt) stt.addEventListener("change", updateQuote);
+    if (sw) sw.addEventListener("change", refreshSwapBalances);
 });
 
 async function refreshAll() {
@@ -1099,6 +1178,155 @@ async function refreshAll() {
 
 refreshAll();
 setInterval(refreshStatus, 5000);
+
+/* ============================================================
+   AIX Brain — вкладка (read-only)
+   ============================================================ */
+
+const BRAIN_STATE = {
+  history: [],
+  busy: false,
+  lastModel: "—",
+};
+
+async function brainHealth() {
+  const el = document.getElementById("brain-health");
+  if (!el) return;
+  try {
+    const r = await fetch(`${NODE_URL}/brain/health`);
+    const h = await r.json();
+    const ok = h.backend_available;
+    const cc = ok ? "#00ff88" : "#ff4466";
+    const mem = h.memory_available ? "#00ff88" : "#ff4466";
+    const sign = h.signer_enabled
+      ? `<span style="color:#FFD700;">${h.signer}</span>`
+      : `<span style="color:#888;">${h.signer} (только чтение)</span>`;
+    el.innerHTML = `
+      <b>Бэкенд:</b> <span style="color:${cc};">${ok ? "OK" : "DOWN"}</span>
+        <span style="color:#666;">${h.backend_url}</span><br>
+      <b>Модель:</b> <span style="color:#00F0FF;">${h.model}</span>
+        ${h.model_installed ? "✅" : "❌ не установлена"}<br>
+      <b>Память:</b> <span style="color:${mem};">${h.memory_available ? "OK" : "NO"}</span><br>
+      <b>Signer:</b> ${sign}<br>
+      <b>Нода:</b> <span style="color:#888;">${h.node_url}</span><br>
+      <b>Инструменты:</b> <span style="color:#aaa;">${(h.tools || []).join(", ")}</span>
+    `;
+    BRAIN_STATE.lastModel = h.model;
+    const ml = document.getElementById("brain-model-label");
+    if (ml) ml.textContent = `модель: ${h.model}`;
+  } catch (e) {
+    el.innerHTML = `<span style="color:#ff4466;">❌ Brain недоступен: ${e}</span>`;
+  }
+}
+
+function brainRender() {
+  const chat = document.getElementById("brain-chat");
+  if (!chat) return;
+  if (BRAIN_STATE.history.length === 0) {
+    chat.innerHTML =
+      `<div style="color:#666; font-style:italic;">
+         Начни диалог — напиши вопрос ниже и нажми «Спросить».
+       </div>`;
+    return;
+  }
+  const html = BRAIN_STATE.history.map(m => {
+    if (m.role === "user") {
+      return `<div style="margin-bottom:12px;">
+        <span style="color:#00F0FF; font-weight:bold;">вы ▸</span>
+        <span style="color:#eee;">${brainEscape(m.text)}</span>
+      </div>`;
+    }
+    if (m.role === "brain") {
+      return `<div style="margin-bottom:12px;">
+        <span style="color:#8B00FF; font-weight:bold;">🧠 Brain ▸</span>
+        <span style="color:#ddd;">${brainEscape(m.text)}</span>
+      </div>`;
+    }
+    return "";
+  }).join("");
+  chat.innerHTML = html;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function brainEscape(s) {
+  const d = document.createElement("div");
+  d.textContent = s == null ? "" : String(s);
+  return d.innerHTML.replace(/\n/g, "<br>");
+}
+
+async function brainSend() {
+  if (BRAIN_STATE.busy) return;
+  const input = document.getElementById("brain-input");
+  const btn = document.getElementById("brain-send-btn");
+  const text = (input.value || "").trim();
+  if (!text) return;
+
+  BRAIN_STATE.busy = true;
+  btn.disabled = true;
+  btn.textContent = "…";
+
+  BRAIN_STATE.history.push({ role: "user", text: text });
+  BRAIN_STATE.history.push({ role: "brain", text: "думаю…" });
+  brainRender();
+  input.value = "";
+
+  try {
+    const r = await fetch(`${NODE_URL}/brain/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    BRAIN_STATE.history.pop();
+    BRAIN_STATE.history.push({ role: "brain", text: data.answer || "(пусто)" });
+  } catch (e) {
+    BRAIN_STATE.history.pop();
+    BRAIN_STATE.history.push({
+      role: "brain",
+      text: `❌ ошибка: ${e.message}`,
+    });
+  } finally {
+    BRAIN_STATE.busy = false;
+    btn.disabled = false;
+    btn.textContent = "Спросить";
+    brainRender();
+  }
+}
+
+function brainReset() {
+  BRAIN_STATE.history = [];
+  brainRender();
+}
+
+function brainBindQuick() {
+  document.querySelectorAll(".brain-quick").forEach(b => {
+    if (b.dataset.bound) return;
+    b.dataset.bound = "1";
+    b.addEventListener("click", () => {
+      const q = b.getAttribute("data-q");
+      const input = document.getElementById("brain-input");
+      if (input) {
+        input.value = q;
+        brainSend();
+      }
+    });
+  });
+}
+
+function brainInit() {
+  brainHealth();
+  brainBindQuick();
+}
+
+window.brainInit = brainInit;
+window.brainSend = brainSend;
+window.brainReset = brainReset;
+window.brainHealth = brainHealth;
 </script>
+
 </body>
 </html>

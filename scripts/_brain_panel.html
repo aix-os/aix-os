@@ -1,0 +1,71 @@
+<!-- ============================================================
+     AIX Brain — вкладка (read-only, отправка только в CLI)
+     ============================================================ -->
+<div id="panel-brain" class="panel" style="display:none;">
+  <h2>🧠 AIX Brain</h2>
+  <p style="color:#888; font-size:13px; margin-top:-10px;">
+    Встроенный AI-напарник. Локальная модель. Ключи недосягаемы.
+  </p>
+
+  <!-- Health -->
+  <div id="brain-health" style="
+      background:#0d1230; border:1px solid #1a2a55; border-radius:10px;
+      padding:14px; margin-bottom:14px; font-size:13px; line-height:1.8;">
+    <span style="color:#888;">загрузка health…</span>
+  </div>
+
+  <!-- Warning -->
+  <div style="
+      background:#2a1a05; border-left:3px solid #FFD700; padding:10px 14px;
+      border-radius:6px; margin-bottom:14px; font-size:13px;">
+    <b style="color:#FFD700;">🔐 Безопасность:</b>
+    <span style="color:#ccc;">
+      Отправка AIX из браузера отключена. Для транзакций открой CLI:
+      <code style="background:#000; padding:2px 6px; border-radius:4px; color:#00F0FF;">
+        aix brain send &lt;кошелёк&gt; &lt;кому&gt; &lt;сумма&gt;
+      </code>
+    </span>
+  </div>
+
+  <!-- Quick actions -->
+  <div style="margin-bottom:14px;">
+    <span style="color:#888; font-size:12px;">Быстрые вопросы:</span><br>
+    <button class="brain-quick" data-q="Какая сейчас высота цепочки?">📊 статус</button>
+    <button class="brain-quick" data-q="Покажи мой баланс">💰 баланс</button>
+    <button class="brain-quick" data-q="Что нового в DAO?">🏛️ DAO</button>
+    <button class="brain-quick" data-q="Статистика Proof of Contribution">🧬 PoC</button>
+    <button class="brain-quick" data-q="Что ты помнишь о проекте?">🧠 память</button>
+  </div>
+
+  <!-- Chat history -->
+  <div id="brain-chat" style="
+      background:#05081a; border:1px solid #1a2a55; border-radius:10px;
+      padding:14px; min-height:220px; max-height:520px; overflow-y:auto;
+      font-size:14px; line-height:1.7; margin-bottom:12px;">
+    <div style="color:#666; font-style:italic;">
+      Начни диалог — напиши вопрос ниже и нажми «Спросить».
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div style="display:flex; gap:8px; margin-bottom:10px;">
+    <input id="brain-input" type="text" placeholder="Спроси что-нибудь у AIX OS…"
+           style="flex:1; padding:12px; background:#0d1230; color:#fff;
+                  border:1px solid #1a2a55; border-radius:8px; font-size:14px;"
+           onkeydown="if(event.key==='Enter' && !event.shiftKey) brainSend();">
+    <button id="brain-send-btn" onclick="brainSend()"
+            style="padding:12px 24px; background:#8B00FF; color:#fff;
+                   border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
+      Спросить
+    </button>
+    <button onclick="brainReset()" title="Очистить историю"
+            style="padding:12px 16px; background:#1a2a55; color:#ccc;
+                   border:none; border-radius:8px; cursor:pointer;">
+      ⟳
+    </button>
+  </div>
+
+  <div style="font-size:12px; color:#666; text-align:right;">
+    <span id="brain-model-label">—</span>
+  </div>
+</div>

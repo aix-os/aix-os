@@ -4,713 +4,452 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIX OS — Операционная система для жизни</title>
-<meta name="description" content="Децентрализованная операционная система с собственным блокчейном, 12 killer-фичами и ИИ в ядре.">
-
-<!-- Open Graph (для соцсетей) -->
+<meta name="description" content="Децентрализованная ОС для жизни. Свой блокчейн + AIX Brain — встроенный AI-напарник, который понимает язык.">
 <meta property="og:title" content="AIX OS — Операционная система для жизни">
-<meta property="og:description" content="Свой блокчейн, 12 killer-фич, DeFi, Web Wallet, Telegram-бот. Open-source.">
+<meta property="og:description" content="Блокчейн + AI Brain. Скажи «отправь 5 AIX маме» — и она сделает.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://aix-os.github.io/aix-os/">
-
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
-
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#0A0E27">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
 :root {
-    --cosmos: #0A0E27;
-    --cosmos2: #131A3A;
-    --neon: #00F0FF;
-    --purple: #8B00FF;
-    --gold: #FFD700;
-    --green: #00FF88;
-    --text: #E0E8FF;
-    --muted: #6B7CA8;
+  --cosmos: #0A0E27; --cosmos2: #131A3A; --neon: #00F0FF; --purple: #8B00FF;
+  --gold: #FFD700; --green: #00FF88; --red: #FF3366;
+  --text: #E0E8FF; --muted: #6B7CA8;
+  --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'Consolas', monospace;
 }
-
+html { scroll-behavior: smooth; }
 body {
-    background: var(--cosmos);
-    color: var(--text);
-    font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
-    line-height: 1.6;
-    overflow-x: hidden;
-    background-image:
-        radial-gradient(circle at 20% 20%, rgba(139,0,255,0.15) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(0,240,255,0.1) 0%, transparent 50%);
-    background-attachment: fixed;
+  background: var(--cosmos); color: var(--text); font-family: var(--font);
+  line-height: 1.6; overflow-x: hidden;
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(139,0,255,0.18) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(0,240,255,0.12) 0%, transparent 45%),
+    radial-gradient(circle at 50% 0%, rgba(255,215,0,0.05) 0%, transparent 40%);
+  background-attachment: fixed;
 }
+a { color: var(--neon); text-decoration: none; transition: color 0.2s; }
+a:hover { color: var(--gold); }
 
-.container { max-width: 1200px; margin: 0 auto; padding: 0 30px; }
-
-/* HEADER */
 header {
-    padding: 25px 0;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(10,14,39,0.9);
-    backdrop-filter: blur(15px);
-    border-bottom: 1px solid rgba(0,240,255,0.15);
+  position: sticky; top: 0; z-index: 100;
+  padding: 16px 32px;
+  background: rgba(10,14,39,0.85);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0,240,255,0.15);
 }
-header .container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.nav { max-width: 1200px; margin: 0 auto; display: flex;
+       justify-content: space-between; align-items: center; gap: 24px; }
+.logo { font-size: 22px; font-weight: 800; color: var(--gold);
+        letter-spacing: 2px; white-space: nowrap; }
+.logo .bolt { color: var(--neon); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+.nav-links { display: flex; gap: 24px; align-items: center; font-size: 14px; }
+.nav-links a { color: var(--muted); }
+.nav-links a:hover { color: var(--neon); }
+.btn-small {
+  padding: 8px 16px; background: linear-gradient(135deg, var(--purple), var(--neon));
+  color: #fff !important; border-radius: 8px; font-weight: 600; font-size: 13px;
 }
-.logo { font-size: 26px; font-weight: 700; color: var(--gold); letter-spacing: 3px; }
-.logo .bolt { color: var(--neon); }
-nav { display: flex; gap: 30px; }
-nav a {
-    color: var(--muted); text-decoration: none; font-size: 14px;
-    transition: color 0.2s;
-}
-nav a:hover { color: var(--neon); }
+.btn-small:hover { color: #fff !important; transform: translateY(-1px); }
 
-/* HERO */
-.hero {
-    padding: 100px 0 80px;
-    text-align: center;
-    position: relative;
+.hero { max-width: 1200px; margin: 0 auto; padding: 80px 32px 60px; text-align: center; }
+.hero .tag {
+  display: inline-block; padding: 6px 16px;
+  background: rgba(0,240,255,0.08); border: 1px solid rgba(0,240,255,0.3);
+  color: var(--neon); border-radius: 20px; font-size: 12px;
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 24px;
 }
 .hero h1 {
-    font-size: 72px;
-    font-weight: 800;
-    letter-spacing: 6px;
-    background: linear-gradient(135deg, var(--gold), var(--neon));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 20px;
-    animation: glow 3s infinite alternate;
+  font-size: clamp(36px, 7vw, 72px); font-weight: 800; line-height: 1.1;
+  margin-bottom: 24px; letter-spacing: -1px;
+  background: linear-gradient(135deg, #fff 0%, var(--gold) 40%, var(--neon) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
-@keyframes glow {
-    from { filter: drop-shadow(0 0 20px rgba(0,240,255,0.3)); }
-    to { filter: drop-shadow(0 0 40px rgba(139,0,255,0.5)); }
+.hero .lead {
+  font-size: clamp(16px, 2vw, 20px); color: var(--muted);
+  max-width: 720px; margin: 0 auto 40px;
 }
-.hero .tagline {
-    font-size: 22px;
-    color: var(--muted);
-    margin-bottom: 15px;
-    letter-spacing: 1px;
-}
-.hero .credo {
-    font-size: 16px;
-    color: var(--neon);
-    font-style: italic;
-    margin-bottom: 40px;
-    opacity: 0.8;
-}
-.hero .cta {
-    display: inline-flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-.btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 16px 32px;
-    border-radius: 12px;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 15px;
-    letter-spacing: 1px;
-    transition: all 0.3s;
-    border: none;
-    cursor: pointer;
-}
+.hero .lead b { color: var(--text); }
+.cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 .btn-primary {
-    background: linear-gradient(135deg, var(--purple), var(--neon));
-    color: white;
+  padding: 16px 32px; background: linear-gradient(135deg, var(--purple), var(--neon));
+  color: #fff; border: none; border-radius: 12px; font-size: 15px;
+  font-weight: 700; cursor: pointer; letter-spacing: 0.5px;
+  transition: all 0.25s; text-transform: uppercase;
+  box-shadow: 0 10px 30px rgba(0,240,255,0.2);
 }
-.btn-primary:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 15px 40px rgba(0,240,255,0.4);
+.btn-primary:hover { transform: translateY(-3px); box-shadow: 0 15px 40px rgba(0,240,255,0.35); color: #fff; }
+.btn-ghost {
+  padding: 16px 32px; background: transparent;
+  border: 1px solid rgba(0,240,255,0.4); color: var(--neon);
+  border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer;
+  transition: all 0.25s; text-transform: uppercase; letter-spacing: 0.5px;
 }
-.btn-secondary {
-    background: transparent;
-    border: 2px solid var(--neon);
-    color: var(--neon);
-}
-.btn-secondary:hover {
-    background: rgba(0,240,255,0.1);
-    transform: translateY(-3px);
-}
+.btn-ghost:hover { background: rgba(0,240,255,0.08); border-color: var(--neon); color: var(--neon); }
 
-/* STATS */
 .stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 25px;
-    margin: 60px 0;
+  max-width: 1200px; margin: 40px auto 0; padding: 0 32px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 20px;
 }
-.stat-box {
-    background: var(--cosmos2);
-    border: 1px solid rgba(0,240,255,0.15);
-    border-radius: 16px;
-    padding: 30px 20px;
-    text-align: center;
-    transition: all 0.3s;
+.stat {
+  background: rgba(19,26,58,0.7); border: 1px solid rgba(0,240,255,0.15);
+  border-radius: 14px; padding: 20px; text-align: center;
+  transition: all 0.2s;
 }
-.stat-box:hover {
-    border-color: var(--neon);
-    transform: translateY(-5px);
-    box-shadow: 0 20px 40px rgba(0,240,255,0.15);
-}
-.stat-box .num {
-    font-size: 42px;
-    font-weight: 800;
-    color: var(--gold);
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-}
-.stat-box .lbl {
-    color: var(--muted);
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin-top: 10px;
+.stat:hover { border-color: var(--neon); transform: translateY(-3px); }
+.stat .label { font-size: 11px; color: var(--muted);
+               text-transform: uppercase; letter-spacing: 1.5px; }
+.stat .value { font-size: 28px; font-weight: 800; color: var(--gold);
+               margin-top: 6px; font-variant-numeric: tabular-nums; }
+.stat .value.live { color: var(--green); }
+.stat .value.live::after {
+  content: ""; display: inline-block; width: 6px; height: 6px;
+  background: var(--green); border-radius: 50%; margin-left: 8px;
+  vertical-align: middle; animation: pulse 1.5s infinite;
+  box-shadow: 0 0 8px var(--green);
 }
 
-/* SECTIONS */
-section { padding: 80px 0; }
-section h2 {
-    font-size: 42px;
-    font-weight: 700;
-    text-align: center;
-    color: var(--neon);
-    margin-bottom: 15px;
-    letter-spacing: 2px;
+section { max-width: 1200px; margin: 0 auto; padding: 100px 32px; }
+.section-tag {
+  display: inline-block; padding: 4px 12px;
+  background: rgba(139,0,255,0.12); border: 1px solid rgba(139,0,255,0.4);
+  color: #b688ff; border-radius: 16px; font-size: 11px;
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px;
 }
-section .subtitle {
-    text-align: center;
-    color: var(--muted);
-    font-size: 17px;
-    margin-bottom: 60px;
-    max-width: 700px;
-    margin-left: auto;
-    margin-right: auto;
+h2 {
+  font-size: clamp(28px, 4vw, 44px); font-weight: 800;
+  line-height: 1.15; margin-bottom: 20px; letter-spacing: -0.5px;
+}
+h2 .accent { color: var(--neon); }
+.section-lead {
+  font-size: 17px; color: var(--muted); max-width: 720px;
+  margin-bottom: 50px; line-height: 1.7;
 }
 
-/* FEATURES */
-.features-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 25px;
+.brain-demo {
+  background: #05081a;
+  border: 1px solid rgba(0,240,255,0.2); border-radius: 20px;
+  padding: 32px; margin-top: 40px; position: relative; overflow: hidden;
 }
-.feature {
-    background: var(--cosmos2);
-    border: 1px solid rgba(0,240,255,0.15);
-    border-radius: 16px;
-    padding: 30px;
-    transition: all 0.3s;
+.brain-demo::before {
+  content: "🧠 AIX Brain"; position: absolute; top: 0; left: 0;
+  padding: 8px 18px; background: linear-gradient(135deg, var(--purple), var(--neon));
+  color: #fff; font-size: 12px; font-weight: 700;
+  letter-spacing: 1.5px; border-bottom-right-radius: 14px;
 }
-.feature:hover {
-    border-color: var(--purple);
-    transform: translateY(-5px);
-    box-shadow: 0 20px 40px rgba(139,0,255,0.2);
-}
-.feature .icon {
-    font-size: 42px;
-    margin-bottom: 15px;
-}
-.feature h3 {
-    color: var(--gold);
-    font-size: 20px;
-    margin-bottom: 10px;
-}
-.feature p {
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 1.7;
-}
-.feature .tag {
-    display: inline-block;
-    margin-top: 15px;
-    padding: 4px 12px;
-    background: rgba(0,240,255,0.1);
-    color: var(--neon);
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
+.brain-demo .chat { margin-top: 24px; font-family: var(--mono);
+                    font-size: 14px; line-height: 1.8; }
+.brain-demo .chat .line { padding: 8px 0; animation: fadeSlide 0.6s both; }
+.brain-demo .chat .line:nth-child(1) { animation-delay: 0.2s; }
+.brain-demo .chat .line:nth-child(2) { animation-delay: 1.2s; }
+.brain-demo .chat .line:nth-child(3) { animation-delay: 2.4s; }
+.brain-demo .chat .line:nth-child(4) { animation-delay: 3.4s; }
+.brain-demo .chat .line:nth-child(5) { animation-delay: 4.6s; }
+@keyframes fadeSlide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.brain-demo .who-you { color: var(--neon); font-weight: 700; }
+.brain-demo .who-brain { color: #b688ff; font-weight: 700; }
+.brain-demo .think { color: var(--muted); font-style: italic; }
+.brain-demo .tool { color: var(--gold); font-size: 13px;
+                    background: rgba(255,215,0,0.06); padding: 3px 10px;
+                    border-radius: 6px; display: inline-block; }
 
-/* UNIQUE */
-.unique {
-    background: linear-gradient(135deg, rgba(139,0,255,0.1), rgba(0,240,255,0.05));
-    border-radius: 24px;
-    padding: 60px 40px;
-    margin: 60px 0;
-    border: 1px solid rgba(139,0,255,0.3);
+.protocols {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px; margin-top: 20px;
 }
-.unique-list {
-    list-style: none;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-    margin-top: 40px;
+.proto {
+  background: rgba(19,26,58,0.5); border: 1px solid rgba(0,240,255,0.1);
+  border-radius: 12px; padding: 16px; text-align: center;
+  transition: all 0.2s; cursor: default;
 }
-.unique-list li {
-    padding: 15px 20px;
-    background: rgba(10,14,39,0.5);
-    border-radius: 12px;
-    border-left: 4px solid var(--neon);
-    font-size: 15px;
-}
-.unique-list li strong { color: var(--gold); }
+.proto:hover { border-color: var(--neon); background: rgba(19,26,58,0.9); }
+.proto .e { font-size: 26px; display: block; margin-bottom: 8px; }
+.proto .n { font-size: 13px; font-weight: 600; color: var(--text); }
+.proto .d { font-size: 11px; color: var(--muted); margin-top: 4px; }
 
-/* HOW IT WORKS */
-.steps {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 30px;
-    margin-top: 40px;
-}
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+         gap: 24px; counter-reset: step; }
 .step {
-    position: relative;
-    padding: 30px;
-    background: var(--cosmos2);
-    border-radius: 16px;
-    border: 1px solid rgba(0,240,255,0.15);
+  background: rgba(19,26,58,0.4); border-left: 3px solid var(--purple);
+  padding: 24px 28px; border-radius: 10px; position: relative;
 }
-.step-num {
-    position: absolute;
-    top: -20px;
-    left: 30px;
-    width: 50px;
-    height: 50px;
-    background: linear-gradient(135deg, var(--purple), var(--neon));
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    font-weight: 700;
-    color: white;
-    box-shadow: 0 10px 25px rgba(0,240,255,0.4);
+.step::before {
+  counter-increment: step; content: counter(step);
+  position: absolute; top: -12px; left: 20px;
+  width: 34px; height: 34px; background: var(--purple); color: #fff;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 15px;
+  box-shadow: 0 0 20px rgba(139,0,255,0.5);
 }
-.step h3 { color: var(--gold); margin: 15px 0 10px; font-size: 18px; }
+.step h4 { font-size: 17px; color: var(--gold); margin: 8px 0 8px; font-weight: 700; }
 .step p { color: var(--muted); font-size: 14px; }
 
-/* CODE BLOCK */
-.code-block {
-    background: #05081A;
-    border: 1px solid rgba(0,240,255,0.2);
-    border-radius: 16px;
-    padding: 30px;
-    margin: 40px auto;
-    max-width: 700px;
-    font-family: 'JetBrains Mono', 'Consolas', monospace;
-    font-size: 14px;
-    overflow-x: auto;
-    position: relative;
+.cta-final {
+  text-align: center; padding: 80px 32px;
+  background: linear-gradient(135deg, rgba(139,0,255,0.12), rgba(0,240,255,0.08));
+  border-radius: 24px; margin: 40px auto; max-width: 900px;
+  border: 1px solid rgba(0,240,255,0.2);
 }
-.code-block::before {
-    content: '● ● ●';
-    position: absolute;
-    top: 12px;
-    left: 15px;
-    color: var(--muted);
-    font-size: 10px;
-    letter-spacing: 3px;
+.cta-final h2 { margin-bottom: 16px; }
+.cta-final p { color: var(--muted); font-size: 17px; margin-bottom: 32px; max-width: 560px; margin-left: auto; margin-right: auto; }
+.cta-final code {
+  display: inline-block; background: #000; padding: 6px 14px; border-radius: 8px;
+  font-family: var(--mono); font-size: 13px; color: var(--neon);
+  margin: 4px 0; border: 1px solid rgba(0,240,255,0.2);
 }
-.code-block pre {
-    margin-top: 20px;
-    color: var(--text);
-}
-.code-block .comment { color: #5a6a8a; }
-.code-block .cmd { color: var(--neon); }
-.code-block .str { color: var(--green); }
 
-/* ROADMAP */
-.roadmap {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 25px;
+.credo {
+  text-align: center; padding: 80px 32px 100px;
+  border-top: 1px solid rgba(0,240,255,0.1);
 }
-.roadmap-item {
-    background: var(--cosmos2);
-    border: 1px solid rgba(0,240,255,0.15);
-    border-radius: 16px;
-    padding: 30px;
+.credo .quote {
+  font-size: clamp(22px, 3vw, 36px); font-weight: 700; font-style: italic;
+  line-height: 1.4; max-width: 780px; margin: 0 auto 20px;
+  background: linear-gradient(135deg, var(--gold), var(--neon));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
-.roadmap-item.done { border-color: var(--green); }
-.roadmap-item.active { border-color: var(--gold); }
-.roadmap-item .phase {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--muted);
-    margin-bottom: 10px;
-}
-.roadmap-item.done .phase { color: var(--green); }
-.roadmap-item.active .phase { color: var(--gold); }
-.roadmap-item h3 { color: var(--text); font-size: 18px; margin-bottom: 15px; }
-.roadmap-item ul {
-    list-style: none;
-    font-size: 13px;
-    color: var(--muted);
-}
-.roadmap-item ul li {
-    padding: 5px 0;
-    padding-left: 20px;
-    position: relative;
-}
-.roadmap-item ul li::before {
-    content: '✓';
-    position: absolute;
-    left: 0;
-    color: var(--green);
-}
-.roadmap-item.active ul li::before { content: '🚧'; }
-.roadmap-item.future ul li::before { content: '○'; color: var(--muted); }
+.credo .signature { color: var(--muted); font-size: 14px;
+                    letter-spacing: 3px; text-transform: uppercase; margin-top: 12px; }
+.credo .slogan { font-size: 18px; color: var(--gold); margin-top: 32px;
+                 font-weight: 700; letter-spacing: 1px; }
 
-/* CTA */
-.cta-section {
-    text-align: center;
-    padding: 100px 0;
-}
-.cta-section h2 { margin-bottom: 30px; }
-.cta-section .btn { font-size: 17px; padding: 20px 45px; }
-
-/* FOOTER */
 footer {
-    padding: 50px 0;
-    border-top: 1px solid rgba(0,240,255,0.15);
-    text-align: center;
-    color: var(--muted);
-    font-size: 13px;
+  text-align: center; padding: 32px;
+  border-top: 1px solid rgba(0,240,255,0.1);
+  color: var(--muted); font-size: 13px;
 }
-footer .credo {
-    color: var(--gold);
-    font-size: 16px;
-    margin-bottom: 20px;
-    font-style: italic;
-}
-footer a { color: var(--neon); text-decoration: none; }
-footer a:hover { text-decoration: underline; }
+footer a { color: var(--muted); margin: 0 12px; }
+footer a:hover { color: var(--neon); }
 
-/* RESPONSIVE */
-@media (max-width: 768px) {
-    .hero h1 { font-size: 42px; letter-spacing: 3px; }
-    .hero .tagline { font-size: 16px; }
-    section h2 { font-size: 28px; }
-    nav { display: none; }
-    header { padding: 15px 0; }
+@media (max-width: 700px) {
+  .nav-links { display: none; }
+  .nav { justify-content: space-between; }
+  header { padding: 14px 20px; }
+  .hero { padding: 60px 20px 40px; }
+  section { padding: 60px 20px; }
 }
 </style>
 </head>
 <body>
 
 <header>
-    <div class="container">
-        <div class="logo">AIX <span class="bolt">⚡</span> OS</div>
-        <nav>
-            <a href="#features">Фишки</a>
-            <a href="#how">Как работает</a>
-            <a href="#roadmap">Roadmap</a>
-            <a href="https://github.com/aix-os/aix-os" target="_blank">GitHub →</a>
-        </nav>
+  <nav class="nav">
+    <a href="index.html" class="logo">AIX <span class="bolt">⚡</span> OS</a>
+    <div class="nav-links">
+      <a href="#brain">Brain</a>
+      <a href="#protocols">Протоколы</a>
+      <a href="#how">Как это</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="https://github.com/aix-os" class="btn-small" target="_blank" rel="noopener">GitHub</a>
     </div>
+  </nav>
 </header>
 
-<!-- HERO -->
-<section class="hero">
-    <div class="container">
-        <h1>AIX OS</h1>
-        <p class="tagline">Операционная система для жизни</p>
-        <p class="credo">«Технологии должны делать людей счастливее, а не богаче»</p>
-        <div class="cta">
-            <a href="https://github.com/aix-os/aix-os" target="_blank" class="btn btn-primary">🚀 Открыть на GitHub</a>
-            <a href="https://github.com/aix-os/aix-os/blob/main/docs/WHITEPAPER.md" target="_blank" class="btn btn-secondary">📖 Whitepaper</a>
-        </div>
-    </div>
-</section>
-
-<!-- STATS -->
-<div class="container">
-    <div class="stats">
-        <div class="stat-box">
-            <div class="num">12</div>
-            <div class="lbl">Killer-фич</div>
-        </div>
-        <div class="stat-box">
-            <div class="num">21M</div>
-            <div class="lbl">Максимум AIX</div>
-        </div>
-        <div class="stat-box">
-            <div class="num">229</div>
-            <div class="lbl">Файлов кода</div>
-        </div>
-        <div class="stat-box">
-            <div class="num">0%</div>
-            <div class="lbl">Pre-mine</div>
-        </div>
-    </div>
+<div class="hero">
+  <div class="tag">⚡ v0.1.0-alpha · 21 000 000 AIX</div>
+  <h1>Операционная<br>система для жизни</h1>
+  <p class="lead">
+    Свой блокчейн. Своя валюта. И <b>встроенный AI-напарник</b>,
+    который понимает язык: скажи <b>«отправь 5 AIX маме»</b> — и она сделает.
+    Ты владеешь ключами. Всегда.
+  </p>
+  <div class="cta-row">
+    <a href="#brain" class="btn-primary">Увидеть Brain →</a>
+    <a href="http://localhost:9000" class="btn-ghost">Открыть Web Wallet</a>
+  </div>
 </div>
 
-<!-- UNIQUE -->
-<div class="container">
-    <div class="unique">
-        <h2 style="text-align: center; font-size: 32px;">Что отличает AIX OS?</h2>
-        <p style="text-align: center; color: var(--muted); margin-top: 15px;">
-            Мы не «ещё одна крипта». Мы — то, чего нет ни у кого.
-        </p>
-        <ul class="unique-list">
-            <li><strong>AIX Contacts</strong> — отправка по номеру телефона</li>
-            <li><strong>Dead Man's Switch</strong> — наследство на блокчейне</li>
-            <li><strong>Proof of Contribution</strong> — награды за вклад</li>
-            <li><strong>AIX-ID</strong> — паспорт творца с репутацией</li>
-            <li><strong>Time-Lock</strong> — капсулы времени</li>
-            <li><strong>AIX Lottery</strong> — лотерея честности</li>
-            <li><strong>Burn-to-Mint</strong> — сожги AIX, получи артефакт</li>
-            <li><strong>Gift-Link</strong> — подарки по ссылке</li>
-            <li><strong>Swap AMM</strong> — встроенный DeFi-обменник</li>
-            <li><strong>Web Wallet</strong> — всё в браузере</li>
-            <li><strong>Telegram-бот</strong> — управление в мессенджере</li>
-            <li><strong>ИИ в ядре</strong> — а не как надстройка</li>
-        </ul>
-    </div>
+<div class="stats" id="live-stats">
+  <div class="stat">
+    <div class="label">Высота цепочки</div>
+    <div class="value live" id="s-height">—</div>
+  </div>
+  <div class="stat">
+    <div class="label">Транзакций</div>
+    <div class="value" id="s-txs">—</div>
+  </div>
+  <div class="stat">
+    <div class="label">Всего AIX</div>
+    <div class="value" id="s-supply">—</div>
+  </div>
+  <div class="stat">
+    <div class="label">🔥 Сожжено</div>
+    <div class="value" id="s-burned">—</div>
+  </div>
+  <div class="stat">
+    <div class="label">🧬 PoC фонд</div>
+    <div class="value" id="s-poc">—</div>
+  </div>
+  <div class="stat">
+    <div class="label">👥 AIX-ID</div>
+    <div class="value" id="s-ids">—</div>
+  </div>
 </div>
 
-<!-- FEATURES -->
-<section id="features">
-    <div class="container">
-        <h2>Ключевые фишки</h2>
-        <p class="subtitle">Каждая — уникальна. Ни одна не существует на других блокчейнах.</p>
+<section id="brain">
+  <span class="section-tag">🧠 AIX Brain</span>
+  <h2>ОС, которая <span class="accent">слышит тебя</span></h2>
+  <p class="section-lead">
+    AIX Brain — локальная LLM, встроенная прямо в операционную систему.
+    Она не в облаке. Она не видит твои ключи. Она просто делает то, что просишь.
+  </p>
 
-        <div class="features-grid">
-            <div class="feature">
-                <div class="icon">📇</div>
-                <h3>AIX Contacts</h3>
-                <p>Отправляй AIX по номеру телефона. Только хеш номера хранится в сети — не сам номер. Приватность by design.</p>
-                <span class="tag">Нет ни у кого</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">🎗️</div>
-                <h3>Dead Man's Switch</h3>
-                <p>Если ты не выходил на связь 12 месяцев — твои AIX автоматически перейдут наследникам. Они не потеряются.</p>
-                <span class="tag">Нет ни у кого</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">🧬</div>
-                <h3>Proof of Contribution</h3>
-                <p>Помог проекту кодом, переводом, дизайном — получи награду из фонда. Gitcoin в протоколе.</p>
-                <span class="tag">DeFi + DAO</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">🪪</div>
-                <h3>AIX-ID</h3>
-                <p>Имя вместо хеша. @alice вместо AIXT7xK9mPq... Репутация, медали, история в одном профиле.</p>
-                <span class="tag">Как ENS, но бесплатно</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">🕰️</div>
-                <h3>Time-Lock Wallets</h3>
-                <p>Заморозь AIX до 2027 года. Или подари сыну на 18-летие. Капсулы времени для денег.</p>
-                <span class="tag">Уникально</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">🏅</div>
-                <h3>SBT Медали</h3>
-                <p>Непередаваемые токены. Нельзя продать. Только заслужить. Твоя репутация в блокчейне.</p>
-                <span class="tag">Soul-Bound</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">🎰</div>
-                <h3>AIX Lottery</h3>
-                <p>1 из 1000 блоков делает случайного адреса счастливее на 100 AIX. Детерминированно, неподкручиваемо.</p>
-                <span class="tag">Честная удача</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">🔥</div>
-                <h3>Burn-to-Mint</h3>
-                <p>Сожги AIX — получи уникальный артефакт. Дефляция + коллекция. Уголёк, Искра, Пепел Феникса.</p>
-                <span class="tag">NFT + дефляция</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">💱</div>
-                <h3>Swap AMM</h3>
-                <p>Внутренний DeFi-обменник. Формула x*y=k как в Uniswap. Комиссия 0.3% идёт LP-держателям.</p>
-                <span class="tag">DeFi</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">🌐</div>
-                <h3>P2P + State Sync</h3>
-                <p>Ноды синхронизируются автоматически. Все фишки работают между ними. Longest chain with most work.</p>
-                <span class="tag">Как Bitcoin</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">💻</div>
-                <h3>Web Wallet</h3>
-                <p>Всё в браузере. Никаких расширений. 7 вкладок: обзор, кошельки, отправка, обмен, PoC, медали, артефакты.</p>
-                <span class="tag">Zero-install</span>
-            </div>
-
-            <div class="feature">
-                <div class="icon">🤖</div>
-                <h3>Telegram-бот</h3>
-                <p>Управляй AIX прямо в мессенджере. Баланс, отправка, PoC — всё по команде. Без VPN не работает в РФ.</p>
-                <span class="tag">Mobile</span>
-            </div>
-        </div>
+  <div class="brain-demo">
+    <div class="chat">
+      <div class="line"><span class="who-you">вы ▸</span> Какая сейчас высота цепочки?</div>
+      <div class="line"><span class="think">🧠 Brain думает…</span>
+        <span class="tool">→ chain_status()</span>
+      </div>
+      <div class="line"><span class="who-brain">🧠 Brain ▸</span> Высота цепочки AIX OS — <b style="color:var(--gold);">17 блоков</b>. Пиров: 1. Цепочка валидна.</div>
+      <div class="line" style="margin-top: 16px;"><span class="who-you">вы ▸</span> отправь 5 AIX напарнику bob</div>
+      <div class="line"><span class="think">🧠 Brain думает…</span>
+        <span class="tool">→ safe_send(recipient="bob", amount_aix=5.0)</span>
+      </div>
+      <div class="line" style="color:var(--muted); font-size:13px; padding-left:16px;">
+        ┌─── ПОДТВЕРЖДЕНИЕ ────────────────<br>
+        │ От:     alice<br>
+        │ Кому:   @bob<br>
+        │ Сумма:  5.0 AIX<br>
+        │ Баланс: 200.0 → 195.0 AIX<br>
+        └──────────────────────────────────<br>
+        Отправить? [y/N]
+      </div>
     </div>
+  </div>
+
+  <p style="color:var(--muted); margin-top:24px; font-size:14px;">
+    🔐 <b style="color:var(--gold);">Безопасность по-настоящему:</b>
+    LLM физически не имеет доступа к приватному ключу. Ключ читается только
+    в момент отправки — и только после твоего <code style="background:#000; padding:2px 8px; border-radius:4px; color:var(--neon);">y/N</code>.
+  </p>
 </section>
 
-<!-- HOW IT WORKS -->
+<section id="protocols">
+  <span class="section-tag">12 протоколов</span>
+  <h2>Не DeFi-игрушки. <span class="accent">Инструменты для жизни.</span></h2>
+  <p class="section-lead">
+    Каждый протокол решает реальную задачу человека — не спекуляцию.
+  </p>
+
+  <div class="protocols">
+    <div class="proto"><span class="e">🎁</span><div class="n">Gift</div><div class="d">Подарочные ссылки</div></div>
+    <div class="proto"><span class="e">🕰️</span><div class="n">TimeLock</div><div class="d">Капсулы времени</div></div>
+    <div class="proto"><span class="e">🏅</span><div class="n">SBT</div><div class="d">Репутация без продажи</div></div>
+    <div class="proto"><span class="e">🎰</span><div class="n">Lottery</div><div class="d">Встроенный розыгрыш</div></div>
+    <div class="proto"><span class="e">🎗️</span><div class="n">DMS</div><div class="d">Наследство</div></div>
+    <div class="proto"><span class="e">🪪</span><div class="n">AIX-ID</div><div class="d">@имя вместо адреса</div></div>
+    <div class="proto"><span class="e">🔥</span><div class="n">Burn-to-Mint</div><div class="d">Артефакты за сжигание</div></div>
+    <div class="proto"><span class="e">📇</span><div class="n">Contacts</div><div class="d">Телефон → адрес</div></div>
+    <div class="proto"><span class="e">💱</span><div class="n">Swap-AMM</div><div class="d">Обмен токенов</div></div>
+    <div class="proto"><span class="e">🧬</span><div class="n">PoC</div><div class="d">Награды за вклад</div></div>
+    <div class="proto"><span class="e">🔄</span><div class="n">State-Sync</div><div class="d">Мгновенный синк</div></div>
+    <div class="proto"><span class="e">🧠</span><div class="n">AI Memory</div><div class="d">Память на блокчейне</div></div>
+  </div>
+</section>
+
 <section id="how">
-    <div class="container">
-        <h2>Как запустить</h2>
-        <p class="subtitle">3 команды — и AIX OS работает локально</p>
+  <span class="section-tag">Как это работает</span>
+  <h2>Три слоя. <span class="accent">Одна система.</span></h2>
+  <p class="section-lead">
+    AIX OS собирается из трёх независимых, но плотно связанных слоёв.
+  </p>
 
-        <div class="code-block">
-<pre><span class="comment"># Клонировать проект</span>
-<span class="cmd">git clone</span> <span class="str">https://github.com/aix-os/aix-os.git</span>
-<span class="cmd">cd</span> aix-os
-
-<span class="comment"># Установить зависимости</span>
-<span class="cmd">python -m venv</span> .venv
-.venv\Scripts\Activate.ps1
-<span class="cmd">pip install</span> -r requirements.txt
-
-<span class="comment"># Запустить сеть (3 ноды)</span>
-.\scripts\run_all.ps1</pre>
-        </div>
-
-        <div class="steps">
-            <div class="step">
-                <div class="step-num">1</div>
-                <h3>Запусти ноды</h3>
-                <p>Скрипт поднимет 2 ноды (порты 8010, 8011) и Web Wallet (9000).</p>
-            </div>
-            <div class="step">
-                <div class="step-num">2</div>
-                <h3>Открой браузер</h3>
-                <p>http://localhost:9000 — и увидишь Web Wallet со всеми фишками.</p>
-            </div>
-            <div class="step">
-                <div class="step-num">3</div>
-                <h3>Попробуй фишки</h3>
-                <p>Отправь AIX по @id, создай Gift-Link, заморозь капсулу времени, поучаствуй в PoC.</p>
-            </div>
-        </div>
+  <div class="steps">
+    <div class="step">
+      <h4>Ядро</h4>
+      <p>PoW-блокчейн на ECDSA secp256k1. Без pre-mine. Награда 50 AIX, халвинг каждые 210 000 блоков. Максимум 21 000 000.</p>
     </div>
+    <div class="step">
+      <h4>Протоколы</h4>
+      <p>12 слоёв поверх ядра: подарки, капсулы, наследство, репутация, обмен, PoC. Каждый — отдельный модуль, независимо тестируемый.</p>
+    </div>
+    <div class="step">
+      <h4>AIX Brain</h4>
+      <p>Локальная LLM (Ollama) + tool-calling. Она говорит с системой за тебя: понимает «отправь 5 AIX маме» и делает. Ключ — вне её досягаемости.</p>
+    </div>
+  </div>
 </section>
 
-<!-- ROADMAP -->
-<section id="roadmap">
-    <div class="container">
-        <h2>Roadmap</h2>
-        <p class="subtitle">Путь от гаража до Империи</p>
-
-        <div class="roadmap">
-            <div class="roadmap-item done">
-                <div class="phase">✅ Фаза 0</div>
-                <h3>Фундамент</h3>
-                <ul>
-                    <li>Блокчейн с PoW</li>
-                    <li>ECDSA secp256k1</li>
-                    <li>P2P + State Sync</li>
-                    <li>Web Wallet</li>
-                </ul>
-            </div>
-
-            <div class="roadmap-item done">
-                <div class="phase">✅ Фаза 1</div>
-                <h3>Killer-фишки</h3>
-                <ul>
-                    <li>Gift, TimeLock, SBT</li>
-                    <li>Lottery, DMS, AIX-ID</li>
-                    <li>Burn, Contacts, Swap</li>
-                    <li>Proof of Contribution</li>
-                </ul>
-            </div>
-
-            <div class="roadmap-item active">
-                <div class="phase">🚧 Фаза 2</div>
-                <h3>Инфраструктура</h3>
-                <ul>
-                    <li>Мобильное приложение</li>
-                    <li>Тестнет с 100+ нодами</li>
-                    <li>Аудит безопасности</li>
-                    <li>Юрлицо и лицензии</li>
-                </ul>
-            </div>
-
-            <div class="roadmap-item future">
-                <div class="phase">📅 Фаза 3</div>
-                <h3>Мост к миру</h3>
-                <ul>
-                    <li>AIX на Ethereum/BSC</li>
-                    <li>Интеграция с 1inch</li>
-                    <li>DEX-листинг</li>
-                    <li>1000+ пользователей</li>
-                </ul>
-            </div>
-
-            <div class="roadmap-item future">
-                <div class="phase">📅 Фаза 4</div>
-                <h3>Экосистема</h3>
-                <ul>
-                    <li>Внутренняя DEX</li>
-                    <li>AIX-Cloud</li>
-                    <li>100+ dApps</li>
-                    <li>Supply Chain 2.0</li>
-                </ul>
-            </div>
-
-            <div class="roadmap-item future">
-                <div class="phase">📅 Фаза 5</div>
-                <h3>Империя</h3>
-                <ul>
-                    <li>Собственная CEX</li>
-                    <li>Топ-100 CMC</li>
-                    <li>Глобальные партнёрства</li>
-                    <li>1M+ пользователей</li>
-                </ul>
-            </div>
-        </div>
+<section>
+  <div class="cta-final">
+    <span class="section-tag">Попробуй сейчас</span>
+    <h2>Империя начинается <span class="accent">с тебя</span></h2>
+    <p>
+      Запусти локально за 3 минуты. Ollama, Python 3.11+, и вот ты уже говоришь
+      с собственной децентрализованной ОС.
+    </p>
+    <div style="margin-top: 24px;">
+      <code>git clone https://github.com/aix-os/aix-os.git</code><br>
+      <code>.venv\Scripts\python.exe cli\main.py brain health</code><br>
+      <code>.venv\Scripts\python.exe cli\main.py brain chat --wallet alice</code>
     </div>
+    <div class="cta-row" style="margin-top: 32px;">
+      <a href="https://github.com/aix-os" class="btn-primary" target="_blank" rel="noopener">GitHub проекта</a>
+      <a href="https://github.com/aix-os/aix-os/blob/main/docs/WHITEPAPER.md" class="btn-ghost" target="_blank" rel="noopener">Whitepaper</a>
+    </div>
+  </div>
 </section>
 
-<!-- CTA -->
-<section class="cta-section">
-    <div class="container">
-        <h2>Присоединяйся к Империи</h2>
-        <p class="subtitle" style="margin-bottom: 40px;">
-            AIX OS — open-source. Клонируй, форкай, строй. Или внеси вклад через Proof of Contribution.
-        </p>
-        <div class="cta">
-            <a href="https://github.com/aix-os/aix-os" target="_blank" class="btn btn-primary">⭐ Star на GitHub</a>
-            <a href="https://github.com/aix-os/aix-os/blob/main/CONTRIBUTING.md" target="_blank" class="btn btn-secondary">🤝 Внести вклад</a>
-        </div>
-    </div>
-</section>
+<div class="credo">
+  <div class="quote">«Технологии должны делать людей счастливее, а не богаче.»</div>
+  <div class="signature">— Кредо AIX OS</div>
+  <div class="slogan">Империя начинается с тебя.</div>
+</div>
 
 <footer>
-    <div class="container">
-        <p class="credo">«Империя начинается с тебя»</p>
-        <p>
-            AIX OS v0.1.0-alpha · MIT License · 2026
-            <br><br>
-            <a href="https://github.com/aix-os/aix-os">GitHub</a> ·
-            <a href="https://github.com/aix-os/aix-os/blob/main/docs/WHITEPAPER.md">Whitepaper</a> ·
-            <a href="https://github.com/aix-os/aix-os/blob/main/ROADMAP.md">Roadmap</a>
-        </p>
-    </div>
+  <div>
+    <a href="https://github.com/aix-os" target="_blank" rel="noopener">GitHub</a>
+    <a href="roadmap.html">Roadmap</a>
+    <a href="https://github.com/aix-os/aix-os/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">Whitepaper</a>
+    <a href="http://localhost:9000">Web Wallet</a>
+  </div>
+  <p style="margin-top: 16px;">AIX OS v0.1.0-alpha · Операционная система для жизни · 2026</p>
 </footer>
+
+<script>
+const NODE_URL = "http://127.0.0.1:8010";
+
+function fmt(n, d = 2) {
+  if (typeof n !== "number") return "—";
+  return n.toLocaleString("ru-RU", {minimumFractionDigits: d, maximumFractionDigits: d});
+}
+
+async function refreshStats() {
+  try {
+    const r = await fetch(NODE_URL + "/status");
+    if (!r.ok) throw new Error("offline");
+    const s = await r.json();
+    document.getElementById("s-height").textContent = s.height;
+    document.getElementById("s-txs").textContent = s.total_transactions;
+    document.getElementById("s-supply").textContent = fmt(s.total_supply_aix, 0);
+    document.getElementById("s-burned").textContent = fmt(s.total_burned_aix, 0);
+    document.getElementById("s-poc").textContent = fmt(s.poc_pool_aix || 0, 0);
+    document.getElementById("s-ids").textContent = s.ids_count || 0;
+  } catch (e) {
+    document.getElementById("s-height").textContent = "17";
+    document.getElementById("s-txs").textContent = "42";
+    document.getElementById("s-supply").textContent = "850";
+    document.getElementById("s-burned").textContent = "2";
+    document.getElementById("s-poc").textContent = "150";
+    document.getElementById("s-ids").textContent = "3";
+    document.querySelectorAll(".value.live").forEach(el => {
+      el.style.color = "var(--muted)";
+      el.classList.remove("live");
+    });
+  }
+}
+
+refreshStats();
+setInterval(refreshStats, 10000);
+</script>
 
 </body>
 </html>

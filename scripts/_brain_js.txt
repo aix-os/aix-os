@@ -1,0 +1,146 @@
+/* ============================================================
+   AIX Brain — вкладка (read-only)
+   ============================================================ */
+
+const BRAIN_STATE = {
+  history: [],       // [{role, text, ts, isTool}]
+  busy: false,
+  lastModel: "—",
+};
+
+async function brainHealth() {
+  const el = document.getElementById("brain-health");
+  if (!el) return;
+  try {
+    const r = await fetch(`${NODE_URL}/brain/health`);
+    const h = await r.json();
+    const ok = h.backend_available;
+    const cc = ok ? "#00ff88" : "#ff4466";
+    const mem = h.memory_available ? "#00ff88" : "#ff4466";
+    const sign = h.signer_enabled
+      ? `<span style="color:#FFD700;">${h.signer}</span>`
+      : `<span style="color:#888;">${h.signer} (только чтение)</span>`;
+    el.innerHTML = `
+      <b>Бэкенд:</b> <span style="color:${cc};">${ok ? "OK" : "DOWN"}</span>
+        <span style="color:#666;">${h.backend_url}</span><br>
+      <b>Модель:</b> <span style="color:#00F0FF;">${h.model}</span>
+        ${h.model_installed ? "✅" : "❌ не установлена"}<br>
+      <b>Память:</b> <span style="color:${mem};">${h.memory_available ? "OK" : "NO"}</span><br>
+      <b>Signer:</b> ${sign}<br>
+      <b>Нода:</b> <span style="color:#888;">${h.node_url}</span><br>
+      <b>Инструменты:</b> <span style="color:#aaa;">${h.tools.join(", ")}</span>
+    `;
+    BRAIN_STATE.lastModel = h.model;
+    const ml = document.getElementById("brain-model-label");
+    if (ml) ml.textContent = `модель: ${h.model}`;
+  } catch (e) {
+    el.innerHTML = `<span style="color:#ff4466;">❌ Brain недоступен: ${e}</span>`;
+  }
+}
+
+function brainRender() {
+  const chat = document.getElementById("brain-chat");
+  if (!chat) return;
+  if (BRAIN_STATE.history.length === 0) {
+    chat.innerHTML =
+      `<div style="color:#666; font-style:italic;">
+         Начни диалог — напиши вопрос ниже и нажми «Спросить».
+       </div>`;
+    return;
+  }
+  const html = BRAIN_STATE.history.map(m => {
+    if (m.role === "user") {
+      return `<div style="margin-bottom:12px;">
+        <span style="color:#00F0FF; font-weight:bold;">вы ▸</span>
+        <span style="color:#eee;">${brainEscape(m.text)}</span>
+      </div>`;
+    }
+    if (m.role === "brain") {
+      return `<div style="margin-bottom:12px;">
+        <span style="color:#8B00FF; font-weight:bold;">🧠 Brain ▸</span>
+        <span style="color:#ddd;">${brainEscape(m.text)}</span>
+      </div>`;
+    }
+    return "";
+  }).join("");
+  chat.innerHTML = html;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function brainEscape(s) {
+  const d = document.createElement("div");
+  d.textContent = s == null ? "" : String(s);
+  return d.innerHTML.replace(/\n/g, "<br>");
+}
+
+async function brainSend() {
+  if (BRAIN_STATE.busy) return;
+  const input = document.getElementById("brain-input");
+  const btn = document.getElementById("brain-send-btn");
+  const text = (input.value || "").trim();
+  if (!text) return;
+
+  BRAIN_STATE.busy = true;
+  btn.disabled = true;
+  btn.textContent = "…";
+
+  BRAIN_STATE.history.push({ role: "user", text: text });
+  BRAIN_STATE.history.push({ role: "brain", text: "думаю…" });
+  brainRender();
+  input.value = "";
+
+  try {
+    const r = await fetch(`${NODE_URL}/brain/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    BRAIN_STATE.history.pop();  // убрать "думаю…"
+    BRAIN_STATE.history.push({ role: "brain", text: data.answer || "(пусто)" });
+  } catch (e) {
+    BRAIN_STATE.history.pop();
+    BRAIN_STATE.history.push({
+      role: "brain",
+      text: `❌ ошибка: ${e.message}`,
+    });
+  } finally {
+    BRAIN_STATE.busy = false;
+    btn.disabled = false;
+    btn.textContent = "Спросить";
+    brainRender();
+  }
+}
+
+function brainReset() {
+  BRAIN_STATE.history = [];
+  brainRender();
+}
+
+function brainBindQuick() {
+  document.querySelectorAll(".brain-quick").forEach(b => {
+    b.addEventListener("click", () => {
+      const q = b.getAttribute("data-q");
+      const input = document.getElementById("brain-input");
+      if (input) {
+        input.value = q;
+        brainSend();
+      }
+    });
+  });
+}
+
+function brainInit() {
+  brainHealth();
+  brainBindQuick();
+}
+
+// Экспорт
+window.brainInit = brainInit;
+window.brainSend = brainSend;
+window.brainReset = brainReset;
+window.brainHealth = brainHealth;

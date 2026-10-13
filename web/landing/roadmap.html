@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIX OS — Roadmap</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="theme-color" content="#0A0E27">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --cosmos: #0A0E27; --cosmos2: #131A3A; --neon: #00F0FF; --purple: #8B00FF;
+  --gold: #FFD700; --green: #00FF88;
+  --text: #E0E8FF; --muted: #6B7CA8;
+}
+body {
+  background: var(--cosmos); color: var(--text);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.6; min-height: 100vh; padding: 40px 20px;
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(139,0,255,0.18) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(0,240,255,0.12) 0%, transparent 45%);
+  background-attachment: fixed;
+}
+a { color: var(--neon); text-decoration: none; }
+a:hover { color: var(--gold); }
+.container { max-width: 900px; margin: 0 auto; }
+.back { display: inline-block; margin-bottom: 30px; color: var(--muted); font-size: 14px; }
+.back:hover { color: var(--neon); }
+h1 {
+  font-size: 42px; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #fff 0%, var(--gold) 40%, var(--neon) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.lead { color: var(--muted); font-size: 17px; margin-bottom: 50px; }
+.stage { margin-bottom: 40px; padding-left: 30px; border-left: 2px solid rgba(0,240,255,0.2); position: relative; }
+.stage::before {
+  content: ""; position: absolute; left: -9px; top: 6px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--purple); box-shadow: 0 0 20px var(--purple);
+}
+.stage.done::before { background: var(--green); box-shadow: 0 0 20px var(--green); }
+.stage.now::before { background: var(--gold); box-shadow: 0 0 20px var(--gold); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+.stage h2 { font-size: 22px; font-weight: 700; color: var(--gold); margin-bottom: 8px; }
+.stage.done h2 { color: var(--green); }
+.stage.now h2 { color: var(--gold); }
+.stage .when { font-size: 12px; color: var(--muted); letter-spacing: 1.5px;
+               text-transform: uppercase; margin-bottom: 14px; }
+.stage ul { list-style: none; }
+.stage li {
+  padding: 8px 0 8px 26px; color: var(--text); font-size: 15px; position: relative;
+}
+.stage li::before {
+  content: "▸"; position: absolute; left: 0; color: var(--neon);
+}
+.stage.done li::before { content: "✅"; font-size: 12px; }
+footer {
+  text-align: center; padding: 40px 20px 20px;
+  border-top: 1px solid rgba(0,240,255,0.1); margin-top: 60px;
+  color: var(--muted); font-size: 13px;
+}
+footer a { margin: 0 10px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="index.html" class="back">← На главную</a>
+  <h1>Roadmap</h1>
+  <p class="lead">Что сделано, что делается, что впереди. Обновляется по мере движения.</p>
+
+  <div class="stage done">
+    <h2>Стадия 1 — Ядро</h2>
+    <div class="when">2026 · Завершено</div>
+    <ul>
+      <li>PoW-блокчейн на ECDSA secp256k1</li>
+      <li>Адреса AIX через Base58Check</li>
+      <li>Кошелёк, подпись, майнинг, халвинг каждые 210 000 блоков</li>
+      <li>P2P-синхронизация между нодами</li>
+    </ul>
+  </div>
+
+  <div class="stage done">
+    <h2>Стадия 2 — 12 протоколов</h2>
+    <div class="when">2026 · Завершено</div>
+    <ul>
+      <li>Gift · TimeLock · SBT · Lottery · DMS · AIX-ID</li>
+      <li>Burn-to-Mint · Contacts · Swap-AMM · PoC · State-Sync</li>
+      <li>AI Memory (#AI-1) — память на блокчейне</li>
+    </ul>
+  </div>
+
+  <div class="stage done">
+    <h2>Стадия 3 — AIX Brain</h2>
+    <div class="when">2026 · Завершено</div>
+    <ul>
+      <li>Локальная LLM через Ollama (qwen2.5:3b)</li>
+      <li>19 инструментов: чтение, память, отправка, gift, timelock, swap, sbt, id</li>
+      <li>Безопасность: CLISigner (y/N), NullSigner для HTTP, ключ не покидает знака</li>
+      <li>CLI: brain health | ask | chat | send | remember</li>
+      <li>Web UI вкладка Brain</li>
+      <li>77 тестов passed</li>
+    </ul>
+  </div>
+
+  <div class="stage now">
+    <h2>Стадия 4 — Выход в мир</h2>
+    <div class="when">2026 · В процессе</div>
+    <ul>
+      <li>Лендинг v2 с живой статистикой</li>
+      <li>Промо-ролик (в производстве)</li>
+      <li>README EN + Habr-статья + Demo guide</li>
+      <li>Публикация на GitHub, Habr, VK, Telegram</li>
+    </ul>
+  </div>
+
+  <div class="stage">
+    <h2>Стадия 5 — Мобильное</h2>
+    <div class="when">2026–2027 · Планируется</div>
+    <ul>
+      <li>Flutter → Android APK</li>
+      <li>Мобильный кошелёк с Brain</li>
+      <li>Уведомления о транзакциях и DAO</li>
+    </ul>
+  </div>
+
+  <div class="stage">
+    <h2>Стадия 6 — Голос</h2>
+    <div class="when">2027 · Планируется</div>
+    <ul>
+      <li>Локальный Whisper (STT) — говоришь, ОС понимает</li>
+      <li>Piper (TTS) — ОС отвечает голосом</li>
+      <li>Полностью оффлайн, без облака</li>
+    </ul>
+  </div>
+
+  <div class="stage">
+    <h2>Стадия 7 — Приватность и mesh</h2>
+    <div class="when">2027+ · Исследование</div>
+    <ul>
+      <li>ZK-proofs для приватных транзакций</li>
+      <li>LoRa-mesh: AIX OS без интернета</li>
+      <li>Децентрализованное обучение AI через PoC</li>
+    </ul>
+  </div>
+
+  <footer>
+    <a href="index.html">Главная</a>
+    <a href="https://github.com/aix-os" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/aix-os/aix-os/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">Whitepaper</a>
+  </footer>
+</div>
+</body>
+</html>

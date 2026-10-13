@@ -54,6 +54,7 @@ from core.protocols.ai_memory import (
 from storage.db import ChainStorage
 from network.peer_manager import PeerManager
 from core.governance.dao import DAOManager
+from ai.brain import BrainAgent, BrainConfig
 
 
 class SendRequest(BaseModel):
@@ -257,6 +258,11 @@ class DAOCancelRequest(BaseModel):
     by: str
 
 
+class BrainAskRequest(BaseModel):
+    message: str
+    model: str | None = None
+
+
 SYNC_INTERVAL = 5.0
 
 async def background_sync(blockchain, storage, peer_manager, port):
@@ -322,6 +328,8 @@ def create_app(port: int, data_file: str, self_url: str,
 
     dao_path = Path(data_file).parent / f"dao_{port}.json"
     dao_manager = DAOManager(dao_path, blockchain=blockchain, sbt_manager=sbt_manager, poc_manager=poc_manager)
+
+    brain_config = BrainConfig.from_env()
 
     def total_locked(address: str) -> int:
         return (gift_manager.locked_balance(address)
@@ -1744,6 +1752,30 @@ def create_app(port: int, data_file: str, self_url: str,
         p = dao_manager.get(proposal_id)
         peer_manager.broadcast_state_event({"kind": "dao_proposal", "data": p.to_dict()})
         return {"status": "cancelled", "id": proposal_id}
+
+    # =========================================================================
+    # BRAIN (AI-напарник)
+    # =========================================================================
+
+    @app.get("/brain/health")
+    def brain_health():
+        try:
+            agent = BrainAgent(brain_config)
+        except Exception as e:
+            raise HTTPException(500, f"Brain недоступен: {e}")
+        return agent.health()
+
+    @app.post("/brain/ask")
+    def brain_ask(req: BrainAskRequest):
+        cfg = brain_config
+        if req.model:
+            cfg = cfg.with_model(req.model)
+        try:
+            agent = BrainAgent(cfg)
+            answer = agent.ask(req.message)
+        except Exception as e:
+            raise HTTPException(500, f"Brain error: {e}")
+        return {"status": "ok", "answer": answer, "model": cfg.model}
 
     # =========================================================================
     # P2P

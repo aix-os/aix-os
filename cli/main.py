@@ -2062,6 +2062,139 @@ def cmd_dao_execute(a):
 
 
 # =============================================================================
+# BRAIN (AI-напарник)
+# =============================================================================
+
+def cmd_brain_health(a):
+    from ai.brain import BrainAgent
+    agent = BrainAgent()
+    h = agent.health()
+    print(f"{Fore.CYAN}\U0001f9e0 AIX Brain -- health")
+    ok = h["backend_available"]
+    c = Fore.GREEN if ok else Fore.RED
+    print(f"   Backend:   {c}{'OK' if ok else 'DOWN'}{Fore.RESET} {h['backend_url']}")
+    print(f"   Model:     {Fore.YELLOW}{h['model']}")
+    mk = h["model_installed"]
+    cm = Fore.GREEN if mk else Fore.YELLOW
+    print(f"   Installed: {cm}{mk}{Fore.RESET}")
+    if h.get("models_available"):
+        shown = ", ".join(h["models_available"][:5])
+        print(f"   Models:    {shown}")
+    mem = h["memory_available"]
+    print(f"   Memory:    {Fore.GREEN + 'OK' if mem else Fore.RED + 'NO'}{Fore.RESET}")
+    print(f"   Node URL:  {h['node_url']}")
+    print(f"   Tools:     {', '.join(h['tools'])}")
+    return 0 if ok else 1
+
+
+def cmd_brain_ask(a):
+    from ai.brain import BrainAgent, BrainConfig, CLISigner, NullSigner
+    cfg = BrainConfig.from_env()
+    if a.model:
+        cfg = cfg.with_model(a.model)
+    signer = CLISigner(a.wallet, cfg.node_url) if getattr(a, "wallet", None) else NullSigner()
+    agent = BrainAgent(cfg, signer=signer)
+    if not agent.client.is_available():
+        print(f"{Fore.RED}\u274c Ollama недоступен на {cfg.base_url}")
+        print(f"   Установи: https://ollama.com")
+        print(f"   Затем:    ollama pull {cfg.model}")
+        return 1
+    print(f"{Fore.CYAN}\U0001f9e0 Brain думает ({cfg.model})...")
+    try:
+        answer = agent.ask(a.message)
+    except Exception as e:
+        print(f"{Fore.RED}\u274c {e}")
+        return 1
+    print(f"{Fore.GREEN}\U0001f4ac {answer}")
+    return 0
+
+
+def cmd_brain_remember(a):
+    from ai.brain import BrainAgent
+    agent = BrainAgent()
+    tags = [t.strip() for t in (a.tags or "").split(",") if t.strip()]
+    res = agent.remember(
+        title=a.title, kind=a.kind, priority=a.priority,
+        body=a.body or "", tags=tags or None,
+    )
+    if not res.get("ok"):
+        print(f"{Fore.RED}\u274c {res.get('error', 'unknown')}")
+        return 1
+    print(f"{Fore.GREEN}\u2705 Записано в AI Memory")
+    print(f"   {a.title}")
+    return 0
+
+
+def cmd_brain_chat(a):
+    from ai.brain import BrainAgent, BrainConfig, CLISigner, NullSigner
+    cfg = BrainConfig.from_env()
+    if a.model:
+        cfg = cfg.with_model(a.model)
+    signer = CLISigner(a.wallet, cfg.node_url) if getattr(a, "wallet", None) else NullSigner()
+    agent = BrainAgent(cfg, signer=signer)
+    if not agent.client.is_available():
+        print(f"{Fore.RED}\u274c Ollama недоступен на {cfg.base_url}")
+        print(f"   Установи: https://ollama.com")
+        print(f"   Затем:    ollama pull {cfg.model}")
+        return 1
+    print(f"{Fore.MAGENTA}\U0001f9e0 AIX Brain -- интерактивный режим ({cfg.model})")
+    print(f"   {Fore.YELLOW}exit | quit | stop | выход -- выход, "
+          f"reset -- очистить историю{Fore.RESET}")
+    while True:
+        try:
+            line = input(f"{Fore.CYAN}вы> {Fore.RESET}").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not line:
+            continue
+        # Strip leading '>' or '>>' — привычка писать как в REPL
+        while line.startswith(">"):
+            line = line[1:].lstrip()
+        if not line:
+            continue
+        if line.lower() in ("exit", "quit", "q", "stop", "выход"):
+            break
+        if line.lower() == "reset":
+            agent.reset()
+            print(f"{Fore.YELLOW}История очищена.{Fore.RESET}")
+            continue
+        try:
+            answer = agent.ask(line)
+        except Exception as e:
+            print(f"{Fore.RED}\u274c {e}")
+            continue
+        if not answer or not answer.strip():
+            print(f"{Fore.YELLOW}\U0001f9e0 (пустой ответ модели — история сброшена, "
+                  f"попробуй переформулировать){Fore.RESET}")
+            continue
+        print(f"{Fore.GREEN}\U0001f9e0 {answer}\n")
+    return 0
+
+
+# =============================================================================
+# BRAIN SEND -- отправка AIX через CLI
+# =============================================================================
+
+def cmd_brain_send(a):
+    from ai.brain import BrainTools, BrainConfig, CLISigner
+    cfg = BrainConfig.from_env()
+    signer = CLISigner(a.wallet, cfg.node_url)
+    tools = BrainTools(cfg, signer=signer)
+    res = tools.safe_send(a.recipient, a.amount, a.message or "")
+    if res.get("ok"):
+        print(f"{Fore.GREEN}\u2705 Отправлено")
+        print(f"   TX ID: {res.get('tx_id', '')[:32]}...")
+        print(f"   Разослано пирам: {res.get('broadcast_to_peers', 0)}")
+        return 0
+    if res.get("cancelled"):
+        print(f"{Fore.YELLOW}\u26a0\ufe0f  Отменено пользователем")
+        return 0
+    print(f"{Fore.RED}\u274c {res.get('error', 'не отправлено')}")
+    return 1
+
+
+# =============================================================================
 # ГЛАВНАЯ
 # =============================================================================
 
@@ -2337,6 +2470,42 @@ def main():
     de = dsub.add_parser("execute", help="Execute passed proposal")
     de.add_argument("proposal_id")
     de.set_defaults(func=cmd_dao_execute)
+
+    # BRAIN -- AI-напарник
+    pbrain = sub.add_parser("brain", help="AIX Brain (локальная LLM)")
+    pbrain.add_argument("--node", default=DEFAULT_NODE)
+    pb_sub = pbrain.add_subparsers(dest="brain_cmd", required=True)
+
+    pb_sub.add_parser("health", help="Проверить бэкенд и модель").set_defaults(
+        func=cmd_brain_health)
+
+    pba = pb_sub.add_parser("ask", help="Спросить AIX Brain")
+    pba.add_argument("message")
+    pba.add_argument("--model", default=None)
+    pba.add_argument("--wallet", default=None,
+                     help="Кошелёк для безопасной отправки (y/N)")
+    pba.set_defaults(func=cmd_brain_ask)
+
+    pbr = pb_sub.add_parser("remember", help="Записать в AI Memory")
+    pbr.add_argument("title")
+    pbr.add_argument("--kind", default="THOUGHT", choices=AI_KINDS)
+    pbr.add_argument("--priority", default="NORMAL", choices=AI_PRIORITIES)
+    pbr.add_argument("--body", default="")
+    pbr.add_argument("--tags", default="")
+    pbr.set_defaults(func=cmd_brain_remember)
+
+    pbc = pb_sub.add_parser("chat", help="Интерактивный диалог")
+    pbc.add_argument("--model", default=None)
+    pbc.add_argument("--wallet", default=None,
+                     help="Кошелёк для безопасной отправки (y/N)")
+    pbc.set_defaults(func=cmd_brain_chat)
+
+    pbs = pb_sub.add_parser("send", help="Отправить AIX (y/N + подпись)")
+    pbs.add_argument("wallet", help="Имя кошелька-отправителя")
+    pbs.add_argument("recipient", help="AIX-адрес, @id, имя или phone:+7...")
+    pbs.add_argument("amount", type=float, help="Сумма в AIX")
+    pbs.add_argument("--message", "-m", default="")
+    pbs.set_defaults(func=cmd_brain_send)
 
     args = p.parse_args()
     return args.func(args)
