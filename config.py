@@ -44,7 +44,7 @@ MINE_SAVE_EVERY_N_BLOCKS = 1
 # False = быстро, но пиры отстают, синхронизировать потом
 MINE_BROADCAST = True
 
-INITIAL_BLOCK_REWARD = 50     # Награда за блок (в AIX)
+INITIAL_BLOCK_REWARD = 0.005  # $0.5 при цене $100
 HALVING_INTERVAL = 210_000    # Каждые 210k блоков награда делится на 2
 BLOCK_TIME_TARGET = 10        # Целевое время блока (секунды)
 

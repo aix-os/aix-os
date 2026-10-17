@@ -1,0 +1,296 @@
+# Changelog
+
+## 7.0.1
+
+- Better namespace support across all parts of the library:
+  - Namespaces of `XmlDocument.parse` and `XmlDocumentFragment.parse` are now resolved at parse-time and constant when manipulating the DOM (this aligns with other XML libraries and removes surprising behavior when moving nodes around).
+  - Deprecate all `namespace` arguments and replace them with the more intention revealing `namespaceUri` and `namespacePrefix`.
+  - Lower-level parser and event APIs can now enable and disable the validation and resolution of namespaces with `validateNamespaces` and `withNamespaces`. This is a BREAKING CHANGE to existing code using these lower-level APIs, as namespaces are no longer available by default.
+  - Introduced `XmlNamespaceException` for error reporting of invalid namespaces.
+  - `XmlName` is now immutable and the complexity with different states is gone.
+  - Added `XmlNamespace` node type and `XmlHasNamespaces` mixin to support reading in-scope namespaces on nodes.
+- Correctly move nodes from their previous parent when inserting them into a new location, rather than throwing an `XmlParentException`. This aligns with standard DOM behavior and improves usability and performance. `XmlDocumentFragment` nodes are automatically expanded and their children are moved as well.
+- Improved performance and usability of `XmlBuilder`:
+  - Significantly improve the performance of `XmlBuilder` as all namespace lookups are now in constant time.
+  - Deprecated `namespace(String uri, String? prefix)` and `namespaces(Map<String, String?> uriToPrefix)` accessors that have an unusually awkward API. Replaced with `namespaceUri(String? prefix, String? uri)` and `namespaceUris(Map<String, String> prefixToUri)` with a clear prefix-uri order.
+  - Deprecated `String? namespace` arguments when definition elements and attributes. Replaced with more flexible `String namespacePrefix` and `String namespaceUri`.
+- Comprehensive XPath 3.1 support:
+  - Complete execution model supporting sequences of items (nodes, atomic values, functions, maps, and arrays).
+  - New expressions and operators: String concatenation (`||`), range (`to`), quantified (`some`/`every`), loops (`for`), simple map (`!`), lookup (`?`), and node comparison (`is`, `<<`, `>>`).
+  - Support for Higher-Order Functions: Inline, named, and arrow functions, inclusive of partial function application and dynamic binding with `fn:function-lookup`.
+  - Native support for XPath Data Model (XDM) maps and arrays, including associated JSON and sequence functions.
+  - Added support for EQName parsing (`Q{uri}name`).
+  - Add missing XPath name tests (namespace prefix, namespace URI, local name, and wildcards) and node tests (`attribute()`, `document-node()` and `element()`).
+  - Significantly improve XPath evaluation [performance](https://github.com/renggli/dart-xml/issues/194#issuecomment-3311509567) for large documents (thanks to [laishere](https://github.com/laishere)).
+  - Fix issues with XPath [axis parsing](https://github.com/renggli/dart-xml/issues/193), [reverse axis access](https://github.com/renggli/dart-xml/issues/194), and [predicate expressions](https://github.com/renggli/dart-xml/issues/194) (thanks to [laishere](https://github.com/laishere)).
+- Update to PetitParser 7.0.2.
+
+## 6.6.1
+
+- Dart and Flutter 3.9 compatibility.
+- Minor optimization to eliminate unused namespaces.
+
+## 6.6.0
+
+- Dart 3.8 and PetitParser 7.0 requirement.
+- Correct decoding of names with surrogate characters.
+
+## 6.5.0
+
+- Add support for most XPath 1.0 functions, including set-operations and ensuring document order for node-sets.
+- Add support for XPath expression evaluation, user-defined variables, and user-defined functions.
+- Add `XmlNode.xpathGenerate` to create a readable XPath for all nodes.
+- Add support for node comparison: `XmlNode.isEqualNode` and `XmlNode.compareNodePosition`.
+
+## 6.4.0
+
+- Dart 3.0 and PetitParser 6.0 requirement.
+- Add RSS feed reader example.
+
+## 6.3.0
+
+- Upgrade to Dart 2.19 and PetitParser 5.4.
+- Add `XmlElement.tag` constructor that greatly simplifies the creation of elements, i.e. `XmlElement(XmlName('br'), [], [], true)` becomes `XmlElement.tag('br', isSelfClosing: true)`.
+- Deprecate the ambiguous `XmlNode.text`: Replace with `XmlNode.value` to access the textual contents of the node, or `XmlNode.innerText` to access the textual contents of its descendants.
+- Fix `XmlNode.siblings` and various related methods to also work correctly on `XmlAttribute` nodes, make the method return a mutable list.
+- Improve `XmlNode.replace(XmlNode)` and add `XmlNode.remove()` for easy removal of a node.
+- Improve error position propagation when building the XML DOM.
+- Make the parser more forgiving when reading attributes.
+- Experimental support of a subset of XPath.
+- Add new-line normalization support.
+
+## 6.2.0
+
+- Upgrade to PetitParser 5.1 brings a 10% speed improvement (typed sequences).
+- Add the ability to tap into a stream of `XmlEvent` with `tapEachEvent` (similar to `forEachEvent`).
+- Remove `XmlName` equality operator `==` and `hashCode`. This is inconsistent with the other DOM nodes, and the provided implementation might not have the desired behavior.
+- Improved error reporting when accessing `innerText` or `innerXml` on DOM nodes that cannot have children.
+
+## 6.1.0
+
+- Dart 2.17 requirement.
+- Validate the presence and order of root nodes when parsing; this got lost in 6.0.0 and can now also optionally be enabled for streaming and iterable parsers.
+- Add support for basic document type parsing. The contents of the `XmlDoctype` can now be accessed through `name`, `externalId` and `internalSubset`.
+
+## 6.0.0
+
+- Significantly improve parsing performance by up to 30%.
+- Improved error handling to include more information, such as tag names and location in the parsed source.
+- Use the pull-based parser for all underlying parsing operations:
+  - Reduce size of library by removing duplicated parsing and validation functionality.
+  - Fix entity decoding if the entity spawns multiple chunks.
+- Cleanup dynamic calls and type declarations:
+  - Avoid all dynamic calls across the library (thanks to [srawlins](https://github.com/srawlins)).
+  - Remove deprecated `XmlTransformer` as it requires dynamic calls in the `XmlVisitor`.
+  - Cleanup the dynamic typing of `XmlVisitor`.
+- `XmlBuilder` keeps keeps correct nesting, even in case of exceptions.
+- Remove deprecated code:
+  - `parse(String input)`: use `XmlDocument.parse(String input)` or `XmlDocumentFragment.parse(String input)` instead.
+  - `XmlBuilder.build()`: use `XmlBuilder.buildDocument()` or `XmlBuilder.buildFragment()` instead.
+  - `XmlNormalizer.defaultInstance`: use `const XmlNormalizer()` instead.
+  - `XmlProductionDefinition`, `XmlGrammarDefinition`, and `XmlParserDefinition`.
+
+## 5.4.0
+
+- Dart 2.16 requirement.
+- Update to PetitParser 5.0.
+- Escape control characters (thanks to [rspilker](https://github.com/rspilker)).
+- Add a predicate to pretty printer to insert a space character before self-closing elements (thanks to [rspilker](https://github.com/rspilker)).
+- Add predicates to normalizer to trim leading and trailing whitespaces, as well as collapse consecutive whitespaces.
+- Expose `qualifiedName`, `localName`, `namespacePrefix` and `namespaceUri` for convenience on the named nodes.
+
+## 5.3.0
+
+- Dart 2.15 requirement.
+- Upgrade to PetitParser 4.3.
+
+## 5.2.0
+
+- A series of read-only accessors that simplify navigating the XML DOM with `XmlElements`:
+  - Add `XmlNode.childElements`.
+  - Add `XmlNode.siblings` and `XmlNode.siblingElements`.
+  - Add `XmlNode.previousElementSibling` and `XmlNode.nextElementSibling`.
+  - Add `XmlNode.ancestorElements`, `XmlNode.precedingElements`, `XmlNode.descendantElements`, and `XmlNode.followingElements`.
+
+## 5.1.1
+
+- Fix printing of Exceptions.
+- Fix parsing of DOCTYPE tags.
+
+## 5.1.0
+
+- Upgrade to PetitParser 4.1.0.
+
+## 5.0.0
+
+- Dart 2.12 requirement and null-safety.
+- Add the possibility to `XmlBuilder` to add raw strings.
+- Improve error reporting (particularly for fragment parsing).
+- Default entity mapping is now a global setting.
+- Improve tutorials and documentation.
+
+## 4.5.0
+
+- Fixed a bug in the XML name parsing where certain unicode planes were not correctly recognized.
+- Removed const constructor from `XmlEvent` to be able to add a lazy initialized `parentEvent` field.
+- Add `XmlWithParentEvents` that provides validation of event nesting and efficient access to the parent events. Use `stream.withParentEvents()` to annotate the stream accordingly.
+- Add namespace resolution to events through `event.namespaceUri`. Note that the data is only available when the parent information is present (see above).
+- Fix namespace resolutions for events in selected sub-tree nodes, even if the namespace declaration is not part of the visible DOM.
+- Add `stream.forEachEvent(onText: ...)` for easier callback based stream processing.
+
+## 4.4.0
+
+- Add a `XmlSubtreeSelector` that allows efficient filtering of events in specific sub-trees. Use `stream.selectSubtreeEvents(...)` to filter the stream accordingly.
+- Add more options to XML pretty printer, namely the possibility to sort and indent attributes.
+- Add typed extension methods for all stream converters, for simpler and more fluent API.
+- Improvements to documentation and examples.
+
+## 4.3.0
+
+- Improve error reporting of `XmlBuilder` and add possibility to build `XmlDocumentFragments`.
+- Improvements to documentation and examples.
+
+## 4.2.0
+
+- Deprecate standalone `XmlDocument parse(String input)` method, and introduce factory methods in the respective nodes `XmlDocument.parse(String input)` and `XmlDocumentFragment.parse(String input)`.
+- Introduce getters and setters for `XmlNode.innerText` (in most cases an alias to `XmlNode.text`), `XmlNode.innerXml` and `XmlNode.outerXml`.
+- Improved support for `XmlDocumentFragment` across the library.
+- Remove the `XmlDocument.text` override, which returned `null`.
+- Add `XmlNode.replace(XmlNode other)` to make it easier to replace nodes in an existing tree.
+- Add `XmlNode.getElement(String name)` as a shortcut to find the first child element with a given name.
+- Add `XmlNode.firstElementChild` and `XmlNode.lastElementChild` to easy access the first/last child element.
+- Add support to selectively disable whitespace normalization while pretty-printing, for example `document.toXmlString(pretty: true, preserveWhitespace: (node) => node is XmlElement && node.name.local == 'pre')` would keep everything within `<pre>` tags as-is.
+
+## 4.1.0
+
+- Improve the pretty printing and the customization of the pretty printing:
+  - `XmlWriter` and `XmlPrettyWriter` are now initialized with optional arguments.
+  - Pretty printing now also supports to customize the newline support.
+  - Example is updated to also syntax highlight / colorize the output.
+- Add full namespace support to attribute accessors `setAttribute` and `removeAttribute`.
+- Improved the documentation, particularly started a section on `xml_events` package.
+
+## 4.0.0
+
+- Cleanup the node hierarchy. Specifically removed `XmlOwned` and `XmlParent` that added a lot of complexity and confusion. Instead, introduced dedicated mixins for nodes with attributes (`XmlHasAttributes`), children (`XmlHasChildren`), names (`XmlHasName`) or parents (`XmlHasParent`).
+- Introduce `XmlDeclaration` nodes, events and builder to make accessing XML version and encoding simpler.
+
+## 3.7.0
+
+- Update to PetitParser 3.0.0.
+- Dart 2.7 compatibility and requirement.
+
+## 3.6.0
+
+- Entity decoding and encoding is now configurable with an `XmlEntityMapping`. All operations that
+  read or write XML can now (optionally) be configured with an entity mapper.
+- The default entity mapping used only maps XML entities, as opposed to all HTML entities as in
+  previous versions. To get the old behavior use `XmlDefaultEntityMapping.html5`.
+- Made `XmlParserError` a `FormatException` to follow typical Dart exception style.
+- Add an example demonstrating the interaction with HTTP APIs.
+
+## 3.5.0
+
+- Dart 2.3 compatibility and requirement.
+- Turn various abstract classes into proper mixins.
+- Numerous documentation improvements and code optimizations.
+- Add an event parser example.
+
+## 3.4.0
+
+- Dart 2.2 compatibility and requirement.
+- Take advantage of PetitParser fast-parse mode:
+  - 15-30% faster DOM parsing, and
+  - 15-50% faster event parsing.
+- Improve error messages and reporting.
+
+## 3.3.0
+
+- New events based parsing in `xml_events`:
+  - Lazy event parsing from an XML string into an `Iterable` of `XmlEvent`.
+  - Async converters between streams of XML, `XmlEvent` and `XmlNode`.
+- Clean up package structure by moving internal packages into the `src/` subtree.
+- Remove the experimental SAX parser, the event parser allows more flexible streaming XML consumption.
+
+## 3.2.4
+
+- Remove unnecessary whitespace when printing self-closing tags.
+- Remember if an element is self-closing for stable printing.
+
+## 3.2.0
+
+- Migrated to PetitParser 2.0
+
+## 3.1.0
+
+- Drop Dart 1.0 compatibility
+- Cleanup, optimization and improved documentation
+- Add experimental support for SAX parsing
+
+## 3.0.0
+
+- Mutable DOM
+- Cleaned up documentation
+- Dart 2.0 strong mode compatibility
+- Reformatted using dartfmt
+
+## 2.6.0
+
+- Fix CDATA encoding
+- Migrate to micro libraries
+- Fixed linter issues
+
+## 2.5.0
+
+- Generic Method syntax with Dart 1.21
+
+## 2.4.5
+
+- Do no longer use `ArgumentError`, but instead use proper exceptions.
+
+## 2.4.4
+
+- Fixed attribute escaping
+- Preserve single and double quotes
+
+## 2.4.3
+
+- Improved documentation
+
+## 2.4.2
+
+- Use enum as the node type
+
+## 2.4.1
+
+- Fixed attribute escaping
+
+## 2.4.0
+
+- Fixed linter issues
+- Cleanup node hierarchy
+
+## 2.3.2
+
+- Improved documentation
+
+## 2.3.1
+
+- Improved test coverage
+
+## 2.3.0
+
+- Improved comments
+- Optimize namespaces
+
+## 2.2.2
+
+- Formatted source
+
+## 2.2.1
+
+- Cleanup pretty printing
+
+## 2.2.0
+
+- Improved comments

@@ -1,0 +1,1 @@
+R:\mobile\flutter_app\build\jni\intermediates\cxx\RelWithDebInfo\4k2m2m5x\obj\arm64-v8a

@@ -1,0 +1,22 @@
+name: image
+version: 4.12.0
+description: >-
+  Dart Image Library provides server and web apps the ability to load, manipulate,
+  and save images with various image file formats.
+homepage: https://github.com/brendan-duncan/image
+documentation: https://github.com/brendan-duncan/image/blob/main/doc/README.md
+
+environment:
+  sdk: ^3.0.0
+
+dependencies:
+  archive: ^4.5.0
+
+dev_dependencies:
+  build_runner: ^2.15.0
+  build_test: ^3.5.15
+  http: ^1.6.0
+  intl: ^0.20.2
+  lints: ^6.1.0
+  test: ^1.31.1
+  web: ^1.1.1

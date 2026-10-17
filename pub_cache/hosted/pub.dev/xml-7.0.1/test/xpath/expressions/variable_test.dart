@@ -1,0 +1,40 @@
+import 'package:test/test.dart';
+import 'package:xml/src/xml/nodes/element.dart';
+import 'package:xml/src/xpath/evaluation/context.dart';
+import 'package:xml/src/xpath/expressions/variable.dart';
+import 'package:xml/src/xpath/types/sequence.dart';
+import '../../utils/matchers.dart';
+
+void main() {
+  test('ContextItemExpression', () {
+    final node = XmlElement.tag('root');
+    final context = XPathContext.empty(node);
+    const expr = ContextItemExpression();
+    expect(expr(context).first, node);
+  });
+  group('VariableExpression', () {
+    test('evaluate existing variable', () {
+      const value = XPathSequence.single('a');
+      final context = XPathContext.empty(
+        XmlElement.tag('root'),
+        variables: {'var': value},
+      );
+      const expr = VariableExpression('var');
+      expect(expr(context), value);
+    });
+    test('evaluate missing variable', () {
+      final context = XPathContext.empty(XmlElement.tag('root'));
+      const expr = VariableExpression('var');
+      expect(
+        () => expr(context),
+        throwsA(isXPathEvaluationException(message: 'Unknown variable: var')),
+      );
+    });
+  });
+  test('LiteralExpression', () {
+    const value = XPathSequence.single('a');
+    const expr = LiteralExpression(value);
+    final context = XPathContext.empty(XmlElement.tag('root'));
+    expect(expr(context), value);
+  });
+}

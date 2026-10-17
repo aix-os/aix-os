@@ -1,0 +1,17 @@
+[
+{
+  "directory": "R:/pub_cache/hosted/pub.dev/jni-1.1.0/android/.cxx/RelWithDebInfo/4k2m2m5x/armeabi-v7a",
+  "command": "C:\\Users\\КОЛЮНЯ\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=armv7-none-linux-androideabi21 --sysroot=C:/Users/КОЛЮНЯ/AppData/Local/Android/Sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -DDART_SHARED_LIB -Djni_EXPORTS -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -O2 -g -DNDEBUG -fPIC -o CMakeFiles\\jni.dir\\dartjni.c.o -c R:\\pub_cache\\hosted\\pub.dev\\jni-1.1.0\\src\\dartjni.c",
+  "file": "R:\\pub_cache\\hosted\\pub.dev\\jni-1.1.0\\src\\dartjni.c"
+},
+{
+  "directory": "R:/pub_cache/hosted/pub.dev/jni-1.1.0/android/.cxx/RelWithDebInfo/4k2m2m5x/armeabi-v7a",
+  "command": "C:\\Users\\КОЛЮНЯ\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=armv7-none-linux-androideabi21 --sysroot=C:/Users/КОЛЮНЯ/AppData/Local/Android/Sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -DDART_SHARED_LIB -Djni_EXPORTS -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -O2 -g -DNDEBUG -fPIC -o CMakeFiles\\jni.dir\\third_party\\global_jni_env.c.o -c R:\\pub_cache\\hosted\\pub.dev\\jni-1.1.0\\src\\third_party\\global_jni_env.c",
+  "file": "R:\\pub_cache\\hosted\\pub.dev\\jni-1.1.0\\src\\third_party\\global_jni_env.c"
+},
+{
+  "directory": "R:/pub_cache/hosted/pub.dev/jni-1.1.0/android/.cxx/RelWithDebInfo/4k2m2m5x/armeabi-v7a",
+  "command": "C:\\Users\\КОЛЮНЯ\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe --target=armv7-none-linux-androideabi21 --sysroot=C:/Users/КОЛЮНЯ/AppData/Local/Android/Sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/sysroot -DDART_SHARED_LIB -Djni_EXPORTS -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -O2 -g -DNDEBUG -fPIC -o CMakeFiles\\jni.dir\\include\\dart_api_dl.c.o -c R:\\pub_cache\\hosted\\pub.dev\\jni-1.1.0\\src\\include\\dart_api_dl.c",
+  "file": "R:\\pub_cache\\hosted\\pub.dev\\jni-1.1.0\\src\\include\\dart_api_dl.c"
+}
+]

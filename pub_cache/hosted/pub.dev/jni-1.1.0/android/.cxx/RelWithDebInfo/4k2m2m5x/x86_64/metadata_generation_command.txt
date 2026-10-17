@@ -1,0 +1,18 @@
+                        -HR:\pub_cache\hosted\pub.dev\jni-1.1.0\src
+-DCMAKE_SYSTEM_NAME=Android
+-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+-DCMAKE_SYSTEM_VERSION=21
+-DANDROID_PLATFORM=android-21
+-DANDROID_ABI=x86_64
+-DCMAKE_ANDROID_ARCH_ABI=x86_64
+-DANDROID_NDK=C:\Users\КОЛЮНЯ\AppData\Local\Android\sdk\ndk\28.2.13676358
+-DCMAKE_ANDROID_NDK=C:\Users\КОЛЮНЯ\AppData\Local\Android\sdk\ndk\28.2.13676358
+-DCMAKE_TOOLCHAIN_FILE=C:\Users\КОЛЮНЯ\AppData\Local\Android\sdk\ndk\28.2.13676358\build\cmake\android.toolchain.cmake
+-DCMAKE_MAKE_PROGRAM=C:\Users\КОЛЮНЯ\AppData\Local\Android\Sdk\cmake\3.22.1\bin\ninja.exe
+-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=R:\mobile\flutter_app\build\jni\intermediates\cxx\RelWithDebInfo\4k2m2m5x\obj\x86_64
+-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=R:\mobile\flutter_app\build\jni\intermediates\cxx\RelWithDebInfo\4k2m2m5x\obj\x86_64
+-DCMAKE_BUILD_TYPE=RelWithDebInfo
+-BR:\pub_cache\hosted\pub.dev\jni-1.1.0\android\.cxx\RelWithDebInfo\4k2m2m5x\x86_64
+-GNinja
+                        Build command args: []
+                        Version: 2

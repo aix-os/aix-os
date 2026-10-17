@@ -230,3 +230,10 @@ config.local.py
 test_*.py
 *_test.py
 !tests/test_*.py
+# === AIX OS: Строительные скрипты (не публиковать) ===
+scripts/patch_*.py
+scripts/fix_*.py
+scripts/build_apk.py
+scripts/create_multi_pools.py
+scripts/update_readme.py
+scripts/cleanup_git_scripts.py
