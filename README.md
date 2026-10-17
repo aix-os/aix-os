@@ -39,7 +39,7 @@ Under the hood it's three layers stacked into one coherent system:
 │                                                                 │
 │   ⛓   CORE BLOCKCHAIN     PoW · ECDSA secp256k1 ·             │
 │       ─────────────       AIX-addresses · No pre-mine          │
-│                           21 000 000 max · 50 AIX reward       │
+│                           21 000 000 000 max · 50 AIX reward       │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -183,6 +183,16 @@ ai/brain/
 
 ---
 
+
+## 📱 Mobile App (Flutter)
+
+The mobile wallet is fully functional and includes:
+- **Local Node** — mine, send, and sync blocks offline.
+- **AIX Brain** — local LLM (Ollama) right in your pocket.
+- **Messenger** — send text messages via blockchain transactions.
+- **Live Prices** — real-time crypto rates via CoinGecko API.
+- **12 Protocols** — DAO, Gifts, TimeLock, Swap, Contacts, Medals, and more.
+
 ## 🛠 Tech stack
 
 | Layer | Tech |
@@ -202,15 +212,15 @@ ai/brain/
 ## 📊 Project status
 
 - ✅ Core blockchain (PoW, ECDSA, Base58Check `AIX…` addresses)
-- ✅ 12 protocols implemented
+- ✅ 12 protocols implemented in mobile UI in mobile UI
 - ✅ AI Memory (#AI-1) — blockchain-native memory for AI
 - ✅ AIX Brain (#AI-2) — local LLM with tool-calling
 - ✅ Safe Send (#AI-3) — CLI-gated transactions with `y/N`
-- ✅ Brain Web UI (#AI-4) — chat in browser (read-only)
-- ✅ 52 tests passing
-- 🟡 Landing page v2 (live stats + demo)
+- ✅ Brain Mobile UI — full chat in Flutter
+- ✅ 58 tests passing
+- ✅ Live CoinGecko prices (BTC, ETH, etc.)
 - 🟡 Demo GIF / video
-- 📋 ZK proofs, LoRa mesh, Flutter Android APK
+- 🚧 ZK proofs, LoRa mesh, Flutter Android APK
 
 ---
 

@@ -148,7 +148,7 @@ class BurnToMintManager:
     # СОЗДАНИЕ (BURN → MINT)
     # =========================================================================
 
-    def mint(self, owner: str, level: str,
+    def mint(self, owner: str, level: str, private_key: str = "",
              blockchain=None) -> tuple[bool, str, Optional[BurnArtifact]]:
         """
         Сжечь AIX и получить артефакт.
@@ -176,9 +176,14 @@ class BurnToMintManager:
                           f"у вас: {balance / config.SATOSHI:.2f}"), None
 
         # Ищем кошелёк владельца локально
-        owner_wallet = self._find_wallet(owner)
-        if owner_wallet is None:
-            return False, "Локальный кошелёк не найден", None
+        import ecdsa
+        if private_key:
+            sk = ecdsa.SigningKey.from_string(bytes.fromhex(private_key), curve=ecdsa.SECP256k1)
+        else:
+            owner_wallet = self._find_wallet(owner)
+            if owner_wallet is None:
+                return False, "Локальный кошелёк не найден", None
+            sk = owner_wallet.get_signing_key()
 
         # Создаём BURN-транзакцию
         tx = Transaction(
@@ -187,7 +192,7 @@ class BurnToMintManager:
             amount=price_raw,
             message=f"🔥 Burn-to-Mint: {info['name']}",
         )
-        owner_wallet.sign_transaction(tx)
+        tx.sign_transaction(sk)
         ok, msg = tx.is_valid()
         if not ok:
             return False, f"Транзакция невалидна: {msg}", None

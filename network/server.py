@@ -176,6 +176,7 @@ class IDUpdateRequest(BaseModel):
 class BurnMintRequest(BaseModel):
     address: str
     level: str
+    private_key: str = ""
 
 class ContactRegisterRequest(BaseModel):
     address: str
@@ -1231,7 +1232,7 @@ def create_app(port: int, data_file: str, self_url: str,
     def burn_mint(req: BurnMintRequest):
         owner_addr = resolve_who(req.address)
         ok, msg, artifact = burn_manager.mint(
-            owner=owner_addr, level=req.level, blockchain=blockchain,
+            owner=owner_addr, level=req.level, private_key=req.private_key, blockchain=blockchain,
         )
         if not ok:
             raise HTTPException(400, msg)
