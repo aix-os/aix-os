@@ -162,6 +162,7 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
 <div class="container">
     <div class="tabs">
         <div class="tab active" data-tab="overview">📊 Обзор</div>
+        <div class="tab" data-tab="mining">⛏️ Майнинг</div>
         <div class="tab" data-tab="wallets">👛 Кошельки</div>
         <div class="tab" data-tab="send">📤 Отправить</div>
         <div class="tab" data-tab="swap">💱 Обмен</div>
@@ -194,6 +195,26 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
         <div class="chart-box"><canvas id="chain-chart"></canvas></div>
     </div>
 
+    <div class="panel" id="panel-mining">
+        <h2>⛏️ Майнинг</h2>
+        <div class="notice">Майнинг через ноду. Каждый блок = 50 AIX. Майни на любой кошелёк.</div>
+        <div class="card">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Кошелёк-майнер</label>
+            <select id="mine-wallet"></select>
+            <button onclick="mineOne()" id="mine-btn" style="width:100%;">⛏️ Замайнить блок</button>
+            <div class="result" id="mine-result"></div>
+        </div>
+        <div class="card">
+            <h3>Автоматический майнинг</h3>
+            <p style="color:var(--muted); font-size:13px; margin-bottom:15px;">
+                Или запусти скрипт в терминале на много блоков подряд:
+            </p>
+            <code style="display:block; background:#000; padding:12px; border-radius:6px; color:var(--neon); font-family:'Consolas',monospace; font-size:13px;">
+                .venv\Scripts\python.exe scripts\mine_founder.py --wallet имя --target 1000000
+            </code>
+        </div>
+    </div>
+
     <div class="panel" id="panel-wallets">
         <h2>Кошельки</h2>
         <div class="card" id="wallets-list"><div class="empty">Загрузка...</div></div>
@@ -201,7 +222,7 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
 
     <div class="panel" id="panel-send">
         <h2>Отправить AIX</h2>
-        <div class="notice">⚠️ Для теста введите приватный ключ. В продакшне ключ должен жить в кошельке.</div>
+        <div class="notice">🔐 Комиссия 0.1% от суммы рассчитывается автоматически.</div>
         <div class="card">
             <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Отправитель</label>
             <select id="send-sender"></select>
@@ -219,8 +240,8 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
     </div>
 
     <div class="panel" id="panel-swap">
-        <h2>💱 Обмен SIM-токенов</h2>
-        <div class="notice">🤖 AIX-SIM — симуляция AIX для теста DeFi.</div>
+        <h2>💱 Обмен токенов</h2>
+        <div class="notice">🤖 Синтетические токены внутри AIX OS. Не связаны с реальными блокчейнами. AMM: x*y=k, fee 0.3% (0.1% founder, 0.2% LP).</div>
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
                 <div>
@@ -229,14 +250,19 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
                 </div>
                 <button class="secondary small" onclick="refreshSwapBalances()">🔄 Обновить</button>
             </div>
-            <h3>Ваши SIM-токены</h3>
+            <h3>Ваши токены</h3>
             <div id="sim-balances"><div class="empty">Загрузка...</div></div>
             <div class="faucet-row">
-                <button class="secondary small" onclick="faucet('AIX-SIM')">+1000 AIX-SIM</button>
-                <button class="secondary small" onclick="faucet('USDT-SIM')">+1000 USDT-SIM</button>
-                <button class="secondary small" onclick="faucet('BTC-SIM')">+1000 BTC-SIM</button>
-                <button class="secondary small" onclick="faucet('ETH-SIM')">+1000 ETH-SIM</button>
-                <button class="secondary small" onclick="faucet('SOL-SIM')">+1000 SOL-SIM</button>
+                <button class="secondary small" onclick="faucet('AIX')">+1000 AIX</button>
+                <button class="secondary small" onclick="faucet('USDT')">+1000 USDT</button>
+                <button class="secondary small" onclick="faucet('USDC')">+1000 USDC</button>
+                <button class="secondary small" onclick="faucet('BTC')">+1000 BTC</button>
+                <button class="secondary small" onclick="faucet('ETH')">+1000 ETH</button>
+                <button class="secondary small" onclick="faucet('SOL')">+1000 SOL</button>
+                <button class="secondary small" onclick="faucet('TON')">+1000 TON</button>
+                <button class="secondary small" onclick="faucet('BNB')">+1000 BNB</button>
+                <button class="secondary small" onclick="faucet('XRP')">+1000 XRP</button>
+                <button class="secondary small" onclick="faucet('DOGE')">+1000 DOGE</button>
             </div>
             <div class="result" id="faucet-result"></div>
         </div>
@@ -561,8 +587,8 @@ async function refreshStatus() {
         $("block-height").textContent = "Блок #" + s.height;
         $("ov-height").textContent = s.height;
         $("ov-txs").textContent = s.total_transactions;
-        $("ov-supply").textContent = fmt(s.total_supply_aix);
-        $("ov-burned").textContent = fmt(s.total_burned_aix);
+        $("ov-supply").textContent = fmt(s.total_supply_aix, 0);
+        $("ov-burned").textContent = fmt(s.total_burned_aix, 0);
         $("ov-peers").textContent = s.peers_count;
         $("ov-ids").textContent = s.ids_count;
         $("ov-sbt").textContent = s.sbt_count;
@@ -581,7 +607,8 @@ async function drawChainChart() {
     try {
         const d = await apiGet("/chain?limit=20");
         const labels = d.blocks.map(b => "#" + b.index);
-        const txCounts = d.blocks.map(b => b.transactions.length);
+        const txCounts = b => 0;
+        const txCountsArr = d.blocks.map(b => b.transactions.length);
 
         if (chainChart) chainChart.destroy();
         const ctx = $("chain-chart").getContext("2d");
@@ -591,7 +618,7 @@ async function drawChainChart() {
                 labels,
                 datasets: [{
                     label: "Транзакций в блоке",
-                    data: txCounts,
+                    data: txCountsArr,
                     borderColor: "#00F0FF",
                     backgroundColor: "rgba(0,240,255,0.1)",
                     tension: 0.4, fill: true, borderWidth: 2,
@@ -635,8 +662,32 @@ async function refreshWallets() {
         $("send-sender").innerHTML = opts;
         $("swap-wallet").innerHTML = opts;
         $("poc-wallet").innerHTML = opts;
+        const mineEl = $("mine-wallet");
+        if (mineEl) mineEl.innerHTML = opts;
     } catch (e) {
         $("wallets-list").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`;
+    }
+}
+
+async function mineOne() {
+    const wn = $("mine-wallet").value;
+    if (!wn) { alert("Выберите кошелёк"); return; }
+    const w = currentWallets.find(x => x.name === wn);
+    if (!w) { alert("Кошелёк не найден"); return; }
+    const btn = $("mine-btn");
+    const res = $("mine-result");
+    btn.disabled = true;
+    res.className = "result show";
+    res.textContent = "⛏️ Майню...";
+    try {
+        const d = await apiPost("/mine", {miner_address: w.address, broadcast: true});
+        res.textContent = `✅ Блок #${d.block_index} замайнен\n${d.time_seconds} сек\n+${d.reward_aix} AIX → ${wn}`;
+        refreshAll();
+    } catch (e) {
+        res.classList.add("error");
+        res.textContent = "❌ " + e.message;
+    } finally {
+        btn.disabled = false;
     }
 }
 
@@ -724,7 +775,6 @@ async function sendMoney() {
     finally { btn.disabled = false; }
 }
 
-// SWAP
 async function refreshSwapAll() {
     await refreshSwapBalances();
     await refreshPools();
@@ -738,8 +788,8 @@ async function loadSwapTokens() {
         const opts = tokens.map(t => `<option value="${t}">${d.tokens[t].emoji} ${t}</option>`).join("");
         $("swap-from-token").innerHTML = opts;
         $("swap-to-token").innerHTML = opts;
-        $("swap-from-token").value = "USDT-SIM";
-        $("swap-to-token").value = "AIX-SIM";
+        $("swap-from-token").value = "USDT";
+        $("swap-to-token").value = "AIX";
     } catch (e) {}
 }
 async function refreshSwapBalances() {
@@ -832,7 +882,6 @@ async function executeSwap() {
     finally { btn.disabled = false; }
 }
 
-// POC
 async function refreshPocAll() {
     await loadPocCategories();
     await loadPocPool();
@@ -996,7 +1045,6 @@ async function pocPay(id) {
     } catch (e) { alert("❌ " + e.message); }
 }
 
-// DAO
 async function refreshDao() {
     try {
         const stats = await apiGet("/dao/stats");
@@ -1179,15 +1227,7 @@ async function refreshAll() {
 refreshAll();
 setInterval(refreshStatus, 5000);
 
-/* ============================================================
-   AIX Brain — вкладка (read-only)
-   ============================================================ */
-
-const BRAIN_STATE = {
-  history: [],
-  busy: false,
-  lastModel: "—",
-};
+const BRAIN_STATE = { history: [], busy: false, lastModel: "—" };
 
 async function brainHealth() {
   const el = document.getElementById("brain-health");
@@ -1223,24 +1263,15 @@ function brainRender() {
   const chat = document.getElementById("brain-chat");
   if (!chat) return;
   if (BRAIN_STATE.history.length === 0) {
-    chat.innerHTML =
-      `<div style="color:#666; font-style:italic;">
-         Начни диалог — напиши вопрос ниже и нажми «Спросить».
-       </div>`;
+    chat.innerHTML = `<div style="color:#666; font-style:italic;">Начни диалог — напиши вопрос ниже и нажми «Спросить».</div>`;
     return;
   }
   const html = BRAIN_STATE.history.map(m => {
     if (m.role === "user") {
-      return `<div style="margin-bottom:12px;">
-        <span style="color:#00F0FF; font-weight:bold;">вы ▸</span>
-        <span style="color:#eee;">${brainEscape(m.text)}</span>
-      </div>`;
+      return `<div style="margin-bottom:12px;"><span style="color:#00F0FF; font-weight:bold;">вы ▸</span> <span style="color:#eee;">${brainEscape(m.text)}</span></div>`;
     }
     if (m.role === "brain") {
-      return `<div style="margin-bottom:12px;">
-        <span style="color:#8B00FF; font-weight:bold;">🧠 Brain ▸</span>
-        <span style="color:#ddd;">${brainEscape(m.text)}</span>
-      </div>`;
+      return `<div style="margin-bottom:12px;"><span style="color:#8B00FF; font-weight:bold;">🧠 Brain ▸</span> <span style="color:#ddd;">${brainEscape(m.text)}</span></div>`;
     }
     return "";
   }).join("");
@@ -1285,10 +1316,7 @@ async function brainSend() {
     BRAIN_STATE.history.push({ role: "brain", text: data.answer || "(пусто)" });
   } catch (e) {
     BRAIN_STATE.history.pop();
-    BRAIN_STATE.history.push({
-      role: "brain",
-      text: `❌ ошибка: ${e.message}`,
-    });
+    BRAIN_STATE.history.push({ role: "brain", text: `❌ ошибка: ${e.message}` });
   } finally {
     BRAIN_STATE.busy = false;
     btn.disabled = false;

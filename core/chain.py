@@ -2,6 +2,7 @@
 AIX OS — Блокчейн (цепочка блоков).
 
 Особенность: транзакции с recipient="BURN" уменьшают supply (сжигание).
+С кэшированием балансов и валидности для высокой производительности.
 """
 
 import time
@@ -25,11 +26,46 @@ class Blockchain:
         self.chain: list = []
         self.mempool = Mempool()
         self.difficulty: int = config.INITIAL_DIFFICULTY
+        
+        # Кэши для быстрого доступа
+        self._balances: dict[str, int] = {}
+        self._total_supply: int = 0
+        self._total_burned: int = 0
+        self._is_valid_cache: tuple[bool, str] = (True, "OK")
+        self._is_valid_height: int = 0
+        
         self._create_genesis()
 
     def _create_genesis(self) -> None:
         genesis = Block.create_genesis(config.GENESIS_MESSAGE)
         self.chain.append(genesis)
+        self._apply_block_to_cache(genesis)
+        self._is_valid_height = 0
+
+    def _apply_block_to_cache(self, block: Block) -> None:
+        """Обновляет балансы и статистику на основе нового блока."""
+        for tx in block.transactions:
+            # Балансы
+            self._balances[tx.sender] = self._balances.get(tx.sender, 0) - tx.amount - tx.fee
+            if tx.recipient != "BURN":
+                self._balances[tx.recipient] = self._balances.get(tx.recipient, 0) + tx.amount
+            
+            # Supply
+            if tx.sender == "COINBASE" or tx.sender == "LOTTERY":
+                self._total_supply += tx.amount
+            elif tx.recipient == "BURN":
+                self._total_supply -= tx.amount
+                self._total_burned += tx.amount
+
+    def _rebuild_cache(self) -> None:
+        """Полностью пересобирает кэш (при загрузке с диска)."""
+        self._balances = {}
+        self._total_supply = 0
+        self._total_burned = 0
+        for block in self.chain:
+            self._apply_block_to_cache(block)
+        self._is_valid_height = self.height()
+        self._is_valid_cache = (True, "OK")
 
     def add_block(self, block: Block) -> tuple:
         previous_block = self.last_block()
@@ -38,22 +74,25 @@ class Blockchain:
             return False, f"Блок невалиден: {msg}"
 
         self.chain.append(block)
+        self._apply_block_to_cache(block)
+        
         tx_ids = [tx.tx_id() for tx in block.transactions]
         self.mempool.remove_many(tx_ids)
         self._adjust_difficulty()
+        
+        # Обновляем кэш валидности
+        if self._is_valid_cache[0]:
+            self._is_valid_cache = (True, "OK")
+            self._is_valid_height = self.height()
+        else:
+            self._is_valid_height = -1
+            
         return True, "OK"
 
     def total_work(self) -> int:
         return sum(2 ** self.difficulty for _ in self.chain)
 
     def replace_chain(self, new_chain: list, new_difficulty: int) -> tuple:
-        """
-        Заменить цепочку на более длинную/тяжёлую.
-
-        ВАЖНО: чистит mempool от транзакций, которые уже вошли в новую цепь,
-        и возвращает только осиротевшие (те, что были у нас, но нет в новой).
-        Без этой очистки в mempool висят stale-tx (баг #1).
-        """
         if len(new_chain) <= len(self.chain):
             return False, "Новая цепочка не длиннее текущей"
 
@@ -62,14 +101,18 @@ class Blockchain:
 
         self.chain = new_chain
         self.difficulty = new_difficulty
+        
+        # Принудительная полная проверка
+        self._is_valid_height = -1
+        self._is_valid_cache = (False, "Не проверено")
 
         ok, msg = self.is_valid()
         if not ok:
             self.chain = backup_chain
             self.difficulty = backup_difficulty
+            self._rebuild_cache()
             return False, f"Новая цепочка невалидна: {msg}"
 
-        # Собираем tx, что были у нас и что теперь в новой цепи
         our_tx_ids = set()
         for b in backup_chain:
             for tx in b.transactions:
@@ -82,22 +125,17 @@ class Blockchain:
                 if tx.sender != "COINBASE":
                     new_tx_ids.add(tx.tx_id())
 
-        # ✅ ГЛАВНОЕ: чистим mempool от tx, что уже вошли в новую цепь
         if new_tx_ids:
             self.mempool.remove_many(list(new_tx_ids))
 
-        # Возвращаем в mempool только осиротевшие (нет в новой цепи)
         orphaned_ids = our_tx_ids - new_tx_ids
         for b in backup_chain:
             for tx in b.transactions:
                 if tx.tx_id() in orphaned_ids:
                     self.mempool.add(tx)
-
-        return True, (
-            f"Цепочка заменена. "
-            f"Из mempool удалено: {len(new_tx_ids)}, "
-            f"осиротевших: {len(orphaned_ids)}"
-        )
+                    
+        self._rebuild_cache()
+        return True, f"Цепочка заменена. Из mempool удалено: {len(new_tx_ids)}, осиротевших: {len(orphaned_ids)}"
 
     def is_better_than(self, other: "Blockchain") -> bool:
         my_work = self.total_work()
@@ -122,23 +160,11 @@ class Blockchain:
             self.difficulty = max(self.difficulty - 1, config.MIN_DIFFICULTY)
 
     # =========================================================================
-    # БАЛАНСЫ (с учётом BURN)
+    # БАЛАНСЫ (ИЗ КЭША)
     # =========================================================================
 
     def get_balance(self, address: str) -> int:
-        """
-        Баланс адреса. BURN-транзакции уменьшают баланс отправителя,
-        но не прибавляются никому (монеты уничтожены).
-        """
-        balance = 0
-        for block in self.chain:
-            for tx in block.transactions:
-                if tx.sender == address:
-                    balance -= tx.amount + tx.fee
-                # BURN-адрес не получает ничего
-                if tx.recipient == address and tx.recipient != "BURN":
-                    balance += tx.amount
-        return balance
+        return self._balances.get(address, 0)
 
     def get_balance_aix(self, address: str) -> float:
         return self.get_balance(address) / config.SATOSHI
@@ -156,37 +182,26 @@ class Blockchain:
         return sum(len(b.transactions) for b in self.chain)
 
     def total_supply(self) -> int:
-        """
-        Сколько AIX в обращении.
-        Учитывает: coinbase прибавляет, BURN отнимает.
-        """
-        total = 0
-        for block in self.chain:
-            for tx in block.transactions:
-                if tx.sender == "COINBASE":
-                    total += tx.amount
-                elif tx.sender == "LOTTERY":
-                    total += tx.amount
-                elif tx.recipient == "BURN":
-                    total -= tx.amount
-        return total
+        return self._total_supply
 
     def total_burned(self) -> int:
-        """Сколько сожжено всего."""
-        total = 0
-        for block in self.chain:
-            for tx in block.transactions:
-                if tx.recipient == "BURN":
-                    total += tx.amount
-        return total
+        return self._total_burned
 
     def is_valid(self) -> tuple:
+        if self._is_valid_height == self.height():
+            return self._is_valid_cache
+            
         for i in range(1, len(self.chain)):
             current = self.chain[i]
             previous = self.chain[i - 1]
             ok, msg = current.is_valid(previous_block=previous, difficulty=self.difficulty)
             if not ok:
+                self._is_valid_cache = (False, msg)
+                self._is_valid_height = -1
                 return False, f"Блок #{i} невалиден: {msg}"
+                
+        self._is_valid_cache = (True, "OK")
+        self._is_valid_height = self.height()
         return True, "OK"
 
     def to_dict(self) -> dict:

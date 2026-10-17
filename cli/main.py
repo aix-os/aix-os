@@ -154,10 +154,10 @@ def cmd_wallet_show(a):
 
     sim = _node_get(url, f"/swap/balances/{w.address}")
     if sim and sim.get("balances"):
-        print(f"\n   {Fore.CYAN}💱 SIM-токены:")
+        print(f"\n   {Fore.CYAN}💱 Токены:")
         for token, bal in sim["balances"].items():
             if bal > 0:
-                print(f"      {token}: {bal / 10**18:.4f}")
+                print(f"      {token}: {bal / config.SATOSHI:.4f}")
     return 0
 
 
@@ -1192,7 +1192,7 @@ def cmd_burn_list(a):
     rows = []
     for art in d["artifacts"]:
         rows.append([f"{art['emoji']} {art['name']}", art['id'],
-                     art['rarity'], f"{art['amount_burned'] / 10**18:.0f}"])
+                     art['rarity'], f"{art['amount_burned'] / config.SATOSHI:.0f}"])
     print(tabulate(rows, headers=["Артефакт", "ID", "Редкость", "Сожжено AIX"],
                    tablefmt="rounded_outline"))
     return 0
@@ -1354,7 +1354,7 @@ def cmd_swap_tokens(a):
     d = _node_get(url, "/swap/tokens")
     if not d:
         print(f"{Fore.RED}❌ Нода {url} не отвечает"); return 1
-    print(f"{Fore.CYAN}💱 Доступные SIM-токены:\n")
+    print(f"{Fore.CYAN}💱 Доступные токены:\n")
     rows = []
     for token, info in d["tokens"].items():
         rows.append([f"{info['emoji']} {token}", info['name']])
@@ -1370,14 +1370,14 @@ def cmd_swap_balance(a):
     d = _node_get(url, f"/swap/balances/{address}")
     if not d:
         print(f"{Fore.RED}❌ Нода {url} не отвечает"); return 1
-    print(f"{Fore.CYAN}💱 SIM-балансы {label}")
+    print(f"{Fore.CYAN}💱 Балансы {label}")
     bals = d.get("balances", {})
     if not bals:
         print(f"   {Fore.YELLOW}Пусто."); return 0
     rows = []
     for token, bal in bals.items():
         if bal > 0:
-            rows.append([token, f"{bal / 10**18:.4f}"])
+            rows.append([token, f"{bal / config.SATOSHI:.4f}"])
     if not rows:
         print(f"   {Fore.YELLOW}Все нулевые."); return 0
     print(tabulate(rows, headers=["Тикер", "Баланс"], tablefmt="rounded_outline"))
@@ -1743,7 +1743,7 @@ def cmd_poc_info(a):
     print(f"   {Fore.CYAN}Категория:   {d['category']}")
     print(f"   {Fore.CYAN}Title:       {d['title']}")
     print(f"   {Fore.CYAN}Description: {d['description'][:80]}...")
-    print(f"   {Fore.CYAN}Награда:     {Fore.YELLOW}{d['requested_reward'] / 10**18:.2f} AIX")
+    print(f"   {Fore.CYAN}Награда:     {Fore.YELLOW}{d['requested_reward'] / config.SATOSHI:.2f} AIX")
     print(f"   {Fore.CYAN}Уровень:     {d['reward_level']}")
     print(f"   {Fore.CYAN}Статус:      {status_color}{d['status']}")
     print(f"   {Fore.CYAN}Подтверждений: {len(d['confirmations'])}/{d['required_confirmations']}")
@@ -1766,7 +1766,7 @@ def cmd_poc_list(a):
     rows = []
     for c in d["contributions"]:
         rows.append([c["id"], c["category"], c["title"][:30],
-                     f"{c['requested_reward'] / 10**18:.2f}",
+                     f"{c['requested_reward'] / config.SATOSHI:.2f}",
                      f"{len(c['confirmations'])}/{c['required_confirmations']}",
                      c["status"]])
     print(tabulate(rows, headers=["ID", "Кат.", "Title", "AIX", "Подтв.", "Статус"],
@@ -1785,7 +1785,7 @@ def cmd_poc_pending(a):
     rows = []
     for c in d["contributions"]:
         rows.append([c["id"], c["category"], c["title"][:35],
-                     f"{c['requested_reward'] / 10**18:.2f}",
+                     f"{c['requested_reward'] / config.SATOSHI:.2f}",
                      f"{len(c['confirmations'])}/{c['required_confirmations']}"])
     print(tabulate(rows, headers=["ID", "Кат.", "Title", "AIX", "Подтв."],
                    tablefmt="rounded_outline"))
@@ -1804,7 +1804,7 @@ def cmd_poc_confirmed(a):
     rows = []
     for c in d["contributions"]:
         rows.append([c["id"], c["contributor"][:20] + "...", c["title"][:30],
-                     f"{c['requested_reward'] / 10**18:.2f}"])
+                     f"{c['requested_reward'] / config.SATOSHI:.2f}"])
     print(tabulate(rows, headers=["ID", "Автор", "Title", "AIX"],
                    tablefmt="rounded_outline"))
     print(f"\n   {Fore.YELLOW}Выплатить: aix poc pay <ID>")

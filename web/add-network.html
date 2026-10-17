@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIX OS — Добавить сеть в MetaMask</title>
+<link rel="icon" type="image/svg+xml" href="/landing/favicon.svg">
+<meta name="theme-color" content="#0A0E27">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --cosmos: #0A0E27; --cosmos2: #131A3A; --neon: #00F0FF; --purple: #8B00FF;
+  --gold: #FFD700; --green: #00FF88; --red: #FF3366;
+  --text: #E0E8FF; --muted: #6B7CA8;
+}
+body {
+  background: var(--cosmos); color: var(--text);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.6; min-height: 100vh; padding: 40px 20px;
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(139,0,255,0.18) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(0,240,255,0.12) 0%, transparent 45%);
+  background-attachment: fixed;
+}
+.container { max-width: 720px; margin: 0 auto; }
+.logo { text-align: center; font-size: 28px; font-weight: 800;
+        color: var(--gold); letter-spacing: 2px; margin-bottom: 6px; }
+.logo .bolt { color: var(--neon); }
+h1 {
+  font-size: 34px; font-weight: 800; text-align: center;
+  margin-bottom: 10px; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #fff 0%, var(--gold) 40%, var(--neon) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.subtitle { text-align: center; color: var(--muted);
+            font-size: 15px; margin-bottom: 32px; }
+.card {
+  background: rgba(19,26,58,0.7);
+  border: 1px solid rgba(0,240,255,0.2);
+  border-radius: 18px; padding: 24px; margin-bottom: 16px;
+}
+.card h2 { color: var(--neon); font-size: 15px; font-weight: 700;
+           letter-spacing: 1.5px; text-transform: uppercase;
+           margin-bottom: 14px; }
+.info-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 10px 0; border-bottom: 1px solid rgba(0,240,255,0.08);
+  gap: 12px;
+}
+.info-row:last-child { border-bottom: none; }
+.info-row .k { color: var(--muted); font-size: 13px; flex-shrink: 0; }
+.info-row .v {
+  color: var(--text); font-family: 'Consolas', monospace;
+  font-size: 12px; text-align: right; word-break: break-all;
+}
+.btn-primary {
+  display: block; width: 100%; padding: 16px;
+  background: linear-gradient(135deg, var(--purple), var(--neon));
+  color: #fff; border: none; border-radius: 12px;
+  font-size: 16px; font-weight: 800; cursor: pointer;
+  letter-spacing: 1px; text-transform: uppercase;
+  transition: all 0.25s; margin-bottom: 12px;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0,240,255,0.3);
+}
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary {
+  display: block; width: 100%; padding: 14px;
+  background: var(--cosmos2); color: var(--neon);
+  border: 1px solid var(--neon); border-radius: 12px;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  transition: all 0.2s;
+}
+.btn-secondary:hover { background: rgba(0,240,255,0.08); }
+
+.status {
+  padding: 14px 18px; border-radius: 10px;
+  margin-top: 14px; font-size: 13px; line-height: 1.5;
+  display: none;
+}
+.status.show { display: block; }
+.status.ok { background: rgba(0,255,136,0.1);
+             border: 1px solid var(--green); color: var(--green); }
+.status.err { background: rgba(255,51,102,0.1);
+              border: 1px solid var(--red); color: var(--red); }
+.status.warn { background: rgba(255,215,0,0.1);
+               border: 1px solid var(--gold); color: var(--gold); }
+.status.info { background: rgba(0,240,255,0.08);
+               border: 1px solid var(--neon); color: var(--neon); }
+
+.steps { counter-reset: step; margin-top: 14px; }
+.step {
+  position: relative; padding: 10px 0 10px 40px;
+  color: var(--muted); font-size: 13px; line-height: 1.6;
+}
+.step::before {
+  counter-increment: step; content: counter(step);
+  position: absolute; left: 0; top: 8px;
+  width: 26px; height: 26px;
+  background: linear-gradient(135deg, var(--purple), var(--neon));
+  color: #fff; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 12px;
+}
+.step b { color: var(--text); }
+.step code {
+  background: #000; padding: 2px 6px; border-radius: 4px;
+  color: var(--neon); font-family: 'Consolas', monospace; font-size: 12px;
+}
+
+.warn-box {
+  background: rgba(255,215,0,0.08);
+  border-left: 3px solid var(--gold);
+  padding: 12px 16px; border-radius: 8px;
+  color: var(--gold); font-size: 13px; line-height: 1.6;
+  margin-top: 14px;
+}
+
+footer {
+  text-align: center; padding: 40px 20px 20px;
+  color: var(--muted); font-size: 12px;
+}
+footer a { color: var(--muted); margin: 0 10px; text-decoration: none; }
+footer a:hover { color: var(--neon); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="logo">AIX <span class="bolt">⚡</span> OS</div>
+  <h1>Добавить в MetaMask</h1>
+  <p class="subtitle">Одна кнопка — и ты видишь свой AIX в популярном кошельке</p>
+
+  <div class="card">
+    <h2>Параметры сети AIX OS</h2>
+    <div class="info-row">
+      <div class="k">Название</div>
+      <div class="v" id="cn-name">—</div>
+    </div>
+    <div class="info-row">
+      <div class="k">RPC URL</div>
+      <div class="v" id="cn-rpc">—</div>
+    </div>
+    <div class="info-row">
+      <div class="k">Chain ID</div>
+      <div class="v" id="cn-chain">—</div>
+    </div>
+    <div class="info-row">
+      <div class="k">Символ</div>
+      <div class="v" id="cn-symbol">—</div>
+    </div>
+    <div class="info-row">
+      <div class="k">Десятичные</div>
+      <div class="v" id="cn-decimals">—</div>
+    </div>
+  </div>
+
+  <button class="btn-primary" id="add-btn" onclick="addNetwork()">
+    🦊 Добавить в MetaMask
+  </button>
+  <button class="btn-secondary" onclick="copyConfig()">
+    📋 Скопировать параметры вручную
+  </button>
+
+  <div class="status" id="status"></div>
+
+  <div class="card" style="margin-top: 24px;">
+    <h2>Ручное добавление</h2>
+    <div class="steps">
+      <div class="step">
+        Открой MetaMask → переключение сети → <b>«Добавить сеть»</b>
+      </div>
+      <div class="step">
+        Выбери <b>«Добавить сеть вручную»</b>
+      </div>
+      <div class="step">
+        Вставь параметры выше в поля
+      </div>
+      <div class="step">
+        Сохрани → переключись на <b>AIX OS</b>
+      </div>
+      <div class="step">
+        Твой AIX появится в списке активов
+      </div>
+    </div>
+    <div class="warn-box">
+      ⚠️ MetaMask покажет <b>нулевой баланс</b> для 0x-адресов.
+      Это нормально — наши AIX-адреса начинаются с <code>AIX</code>,
+      а не с <code>0x</code>. Полный функционал — в родном кошельке AIX OS.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Что это даёт</h2>
+    <p style="color: var(--muted); font-size: 14px; line-height: 1.7;">
+      ✅ Сеть AIX OS появляется в MetaMask в один клик<br>
+      ✅ Работает с Trust Wallet, Rabby, Frame и другими EVM-кошельками<br>
+      ✅ Ты можешь видеть свой AIX в привычном интерфейсе<br>
+      ✅ Позже (этап F) — мост wAIX для реальной торговли на PancakeSwap
+    </p>
+  </div>
+
+  <footer>
+    <a href="/">Web Wallet</a>
+    <a href="/landing/">Лендинг</a>
+    <a href="https://github.com/aix-os/aix-os" target="_blank" rel="noopener">GitHub</a>
+  </footer>
+</div>
+
+<script>
+const NODE_URL = "http://127.0.0.1:8010";
+let NETWORK_CONFIG = null;
+
+async function loadConfig() {
+  const st = document.getElementById("status");
+  try {
+    const r = await fetch(NODE_URL + "/network/config");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    NETWORK_CONFIG = await r.json();
+    document.getElementById("cn-name").textContent = NETWORK_CONFIG.chainName || "AIX OS";
+    document.getElementById("cn-rpc").textContent =
+      (NETWORK_CONFIG.rpcUrls && NETWORK_CONFIG.rpcUrls[0]) || "";
+    document.getElementById("cn-chain").textContent =
+      NETWORK_CONFIG.chainId + " (dec: " + parseInt(NETWORK_CONFIG.chainId, 16) + ")";
+    document.getElementById("cn-symbol").textContent =
+      NETWORK_CONFIG.nativeCurrency?.symbol || "AIX";
+    document.getElementById("cn-decimals").textContent =
+      NETWORK_CONFIG.nativeCurrency?.decimals ?? 18;
+    st.className = "status show ok";
+    st.textContent = "✅ Сеть AIX OS доступна — жми «Добавить в MetaMask»";
+  } catch (e) {
+    st.className = "status show err";
+    st.textContent = "❌ Нода недоступна на " + NODE_URL + ": " + e.message;
+    document.getElementById("add-btn").disabled = true;
+  }
+}
+
+async function addNetwork() {
+  const st = document.getElementById("status");
+  if (!NETWORK_CONFIG) {
+    st.className = "status show err";
+    st.textContent = "❌ Сначала должна загрузиться конфигурация. Обнови страницу.";
+    return;
+  }
+  if (typeof window.ethereum === "undefined") {
+    st.className = "status show warn";
+    st.textContent =
+      "⚠️ MetaMask не найден. Установи расширение с metamask.io и обнови страницу.";
+    return;
+  }
+
+  try {
+    await window.ethereum.request({
+      method: "wallet_addEthereumChain",
+      params: [{
+        chainId: NETWORK_CONFIG.chainId,
+        chainName: NETWORK_CONFIG.chainName,
+        nativeCurrency: NETWORK_CONFIG.nativeCurrency,
+        rpcUrls: NETWORK_CONFIG.rpcUrls,
+        blockExplorerUrls: NETWORK_CONFIG.blockExplorerUrls || [],
+      }],
+    });
+    st.className = "status show ok";
+    st.textContent = "✅ Сеть AIX OS добавлена в MetaMask! Переключись на неё.";
+  } catch (e) {
+    st.className = "status show err";
+    st.textContent = "❌ " + (e.message || e);
+  }
+}
+
+function copyConfig() {
+  const st = document.getElementById("status");
+  if (!NETWORK_CONFIG) return;
+  const text = `Network Name: ${NETWORK_CONFIG.chainName}
+RPC URL: ${NETWORK_CONFIG.rpcUrls[0]}
+Chain ID: ${parseInt(NETWORK_CONFIG.chainId, 16)}
+Symbol: ${NETWORK_CONFIG.nativeCurrency.symbol}
+Decimals: ${NETWORK_CONFIG.nativeCurrency.decimals}`;
+  navigator.clipboard.writeText(text).then(() => {
+    st.className = "status show ok";
+    st.textContent = "✅ Параметры скопированы в буфер обмена";
+  }).catch(() => {
+    st.className = "status show warn";
+    st.textContent = "⚠️ Не удалось скопировать. Скопируй вручную из таблицы.";
+  });
+}
+
+loadConfig();
+</script>
+</body>
+</html>

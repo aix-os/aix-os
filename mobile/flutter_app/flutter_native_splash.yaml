@@ -1,0 +1,13 @@
+# AIX OS — splash screen
+# Запуск: flutter pub run flutter_native_splash:create
+
+flutter_native_splash:
+  color: "#0A0E27"
+  image: "assets/icon/splash.png"
+  android: true
+  ios: false
+  web: false
+  android_12:
+    image: "assets/icon/splash.png"
+    color: "#0A0E27"
+    icon_background_color: "#0A0E27"

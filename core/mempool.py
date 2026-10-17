@@ -164,7 +164,7 @@ if __name__ == "__main__":
         tx = Transaction(
             sender=alice_addr,
             recipient=bob_addr,
-            amount=(i + 1) * 10**18,
+            amount=(i + 1) * 10**8,
             fee=fee,
             message=f"Транзакция #{i + 1}",
         )
@@ -178,6 +178,6 @@ if __name__ == "__main__":
     print("🔝 Выбираю для блока (по убыванию комиссии):")
     selected = mempool.select_for_block(max_count=10)
     for tx in selected:
-        print(f"   fee={tx.fee}, amount={tx.amount // 10**18} AIX")
+        print(f"   fee={tx.fee}, amount={tx.amount // 10**8} AIX")
 
     print(f"\n✅ Mempool работает.")

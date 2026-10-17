@@ -20,6 +20,7 @@ import config
 from core.chain import Blockchain
 from core.block import Block
 from core.transaction import Transaction
+from core.transaction import calculate_fee
 from core.wallet import Wallet
 from core.protocols.gift_link import GiftLinkManager
 from core.protocols.time_lock import TimeLockManager, parse_date, format_time
@@ -359,11 +360,14 @@ def create_app(port: int, data_file: str, self_url: str,
         """Отправить AIX от казначея получателю. Возвращает tx_id."""
         from crypto.keys import private_key_from_bytes
         amount_raw = int(amount_aix * config.SATOSHI)
+        # FAUCET-FEE-FIX: считаем комиссию 0.1%, чтобы прошло is_valid()
+        from core.transaction import calculate_fee
+        fee_raw = calculate_fee(amount_raw)
         tx = Transaction(
             sender=sender_addr,
             recipient=recipient,
             amount=amount_raw,
-            fee=0,
+            fee=fee_raw,
             message="AIX faucet",
         )
         sk = private_key_from_bytes(bytes.fromhex(private_key_hex))
@@ -447,6 +451,15 @@ def create_app(port: int, data_file: str, self_url: str,
                  f"+{a.get('dao_proposals', 0)} dao, "
                   f"+{a.get('poc_contributions', 0)} poc_contributions")
         yield
+
+        # MINE-SPEED-OPTIMIZED: финальный save при shutdown —
+        # чтобы не потерять блоки, что были в буфере.
+        try:
+            storage.save(blockchain)
+            print(f"[{port}] Финальный save: высота {blockchain.height()}")
+        except Exception as e:
+            print(f"[{port}] WARN: финальный save упал: {e}")
+
         task.cancel()
         try:
             await task
@@ -598,8 +611,10 @@ def create_app(port: int, data_file: str, self_url: str,
             raise HTTPException(400,
                 f"Недостаточно свободных средств. Доступно: {available/config.SATOSHI:.2f} AIX")
 
+        # AUTO-FEE-FIX: если клиент не передал комиссию — считаем сами (0.1%)
+        effective_fee = req.fee if req.fee > 0 else calculate_fee(amount)
         tx = Transaction(sender=sender_addr, recipient=recipient_addr,
-                         amount=amount, fee=req.fee, message=req.message)
+                         amount=amount, fee=effective_fee, message=req.message)
         try:
             from crypto.keys import private_key_from_bytes
             sk = private_key_from_bytes(bytes.fromhex(req.private_key))
@@ -657,9 +672,14 @@ def create_app(port: int, data_file: str, self_url: str,
         if not ok:
             raise HTTPException(500, f"Не удалось добавить блок: {msg}")
 
-        storage.save(blockchain)
+        # MINE-SPEED-OPTIMIZED: сохраняем не каждый блок, а раз в N
+        save_every = getattr(config, "MINE_SAVE_EVERY_N_BLOCKS", 1)
+        if save_every <= 1 or new_block.index % save_every == 0:
+            storage.save(blockchain)
+
+        # MINE-SPEED-OPTIMIZED: рассылка блока пирам — опционально
         broadcast_count = 0
-        if req.broadcast:
+        if req.broadcast and getattr(config, "MINE_BROADCAST", True):
             broadcast_count = peer_manager.broadcast_block(new_block.to_dict())
 
         result = {"status": "mined", "block_index": new_block.index,
@@ -1353,14 +1373,14 @@ def create_app(port: int, data_file: str, self_url: str,
         if not ok:
             raise HTTPException(400, msg)
         return {"status": "ok", "address": addr, "token": req.token,
-                "amount": amount, "amount_aix": amount / 10**18,
-                "balance_after": swap_manager.get_balance(addr, req.token) / 10**18}
+                "amount": amount, "amount_aix": amount / config.SATOSHI,
+                "balance_after": swap_manager.get_balance(addr, req.token) / config.SATOSHI}
 
     @app.post("/swap/create_pool")
     def swap_create_pool(req: SwapCreatePoolRequest):
         creator_addr = resolve_who(req.creator)
-        amount_x = int(req.amount_x_aix * 10**18)
-        amount_y = int(req.amount_y_aix * 10**18)
+        amount_x = int(req.amount_x_aix * config.SATOSHI)
+        amount_y = int(req.amount_y_aix * config.SATOSHI)
         ok, msg, pool = swap_manager.create_pool(
             token_x=req.token_x, token_y=req.token_y,
             amount_x=amount_x, amount_y=amount_y,
@@ -1373,11 +1393,11 @@ def create_app(port: int, data_file: str, self_url: str,
             "status": "created",
             "pool": {
                 "id": pool.id, "token_a": pool.token_a, "token_b": pool.token_b,
-                "reserve_a": pool.reserve_a / 10**18,
-                "reserve_b": pool.reserve_b / 10**18,
+                "reserve_a": pool.reserve_a / config.SATOSHI,
+                "reserve_b": pool.reserve_b / config.SATOSHI,
                 "price_a_in_b": pool.price_a_in_b(),
                 "price_b_in_a": pool.price_b_in_a(),
-                "total_lp": pool.total_lp / 10**18,
+                "total_lp": pool.total_lp / config.SATOSHI,
                 "lp_holders": len(pool.lp_holders),
                 "fee_percent": pool.fee_percent,
                 "created_at": pool.created_at,
@@ -1390,11 +1410,11 @@ def create_app(port: int, data_file: str, self_url: str,
         pools = swap_manager.list_pools()
         return {"count": len(pools), "pools": [
             {"id": p.id, "token_a": p.token_a, "token_b": p.token_b,
-             "reserve_a": p.reserve_a / 10**18,
-             "reserve_b": p.reserve_b / 10**18,
+             "reserve_a": p.reserve_a / config.SATOSHI,
+             "reserve_b": p.reserve_b / config.SATOSHI,
              "price_a_in_b": p.price_a_in_b(),
              "price_b_in_a": p.price_b_in_a(),
-             "total_lp": p.total_lp / 10**18,
+             "total_lp": p.total_lp / config.SATOSHI,
              "lp_holders": len(p.lp_holders),
              "fee_percent": p.fee_percent,
              "created_at": p.created_at}
@@ -1408,11 +1428,11 @@ def create_app(port: int, data_file: str, self_url: str,
             raise HTTPException(404, "Пул не найден")
         return {
             "id": pool.id, "token_a": pool.token_a, "token_b": pool.token_b,
-            "reserve_a": pool.reserve_a / 10**18,
-            "reserve_b": pool.reserve_b / 10**18,
+            "reserve_a": pool.reserve_a / config.SATOSHI,
+            "reserve_b": pool.reserve_b / config.SATOSHI,
             "price_a_in_b": pool.price_a_in_b(),
             "price_b_in_a": pool.price_b_in_a(),
-            "total_lp": pool.total_lp / 10**18,
+            "total_lp": pool.total_lp / config.SATOSHI,
             "lp_holders_count": len(pool.lp_holders),
             "fee_percent": pool.fee_percent,
             "created_at": pool.created_at,
@@ -1421,8 +1441,8 @@ def create_app(port: int, data_file: str, self_url: str,
     @app.post("/swap/add_liquidity")
     def swap_add_liquidity(req: SwapAddLiquidityRequest):
         addr = resolve_who(req.address)
-        amount_a = int(req.amount_a_aix * 10**18)
-        amount_b = int(req.amount_b_aix * 10**18)
+        amount_a = int(req.amount_a_aix * config.SATOSHI)
+        amount_b = int(req.amount_b_aix * config.SATOSHI)
         ok, msg, lp = swap_manager.add_liquidity(
             req.pool_id, addr, amount_a, amount_b,
         )
@@ -1432,13 +1452,13 @@ def create_app(port: int, data_file: str, self_url: str,
         if pool:
             peer_manager.broadcast_state_event(make_swap_event(pool))
         return {"status": "ok", "pool_id": req.pool_id,
-                "lp_tokens": lp, "lp_tokens_aix": lp / 10**18,
+                "lp_tokens": lp, "lp_tokens_aix": lp / config.SATOSHI,
                 "message": msg}
 
     @app.post("/swap/remove_liquidity")
     def swap_remove_liquidity(req: SwapRemoveLiquidityRequest):
         addr = resolve_who(req.address)
-        lp_amount = int(req.lp_amount_aix * 10**18)
+        lp_amount = int(req.lp_amount_aix * config.SATOSHI)
         ok, msg, amount_a, amount_b = swap_manager.remove_liquidity(
             req.pool_id, addr, lp_amount,
         )
@@ -1448,8 +1468,8 @@ def create_app(port: int, data_file: str, self_url: str,
         if pool:
             peer_manager.broadcast_state_event(make_swap_event(pool))
         return {"status": "ok", "pool_id": req.pool_id,
-                "amount_a": amount_a, "amount_a_aix": amount_a / 10**18,
-                "amount_b": amount_b, "amount_b_aix": amount_b / 10**18}
+                "amount_a": amount_a, "amount_a_aix": amount_a / config.SATOSHI,
+                "amount_b": amount_b, "amount_b_aix": amount_b / config.SATOSHI}
 
     @app.get("/swap/lp/{pool_id:path}/{address}")
     def swap_lp_info(pool_id: str, address: str):
@@ -1461,7 +1481,7 @@ def create_app(port: int, data_file: str, self_url: str,
 
     @app.post("/swap/quote")
     def swap_quote(req: SwapQuoteRequest):
-        amount_in = int(req.amount_in_aix * 10**18)
+        amount_in = int(req.amount_in_aix * config.SATOSHI)
         ok, msg, info = swap_manager.get_quote(req.pool_id, req.from_token, amount_in)
         if not ok:
             raise HTTPException(400, msg)
@@ -1470,7 +1490,7 @@ def create_app(port: int, data_file: str, self_url: str,
     @app.post("/swap/execute")
     def swap_execute(req: SwapExecuteRequest):
         addr = resolve_who(req.address)
-        amount_in = int(req.amount_in_aix * 10**18)
+        amount_in = int(req.amount_in_aix * config.SATOSHI)
         ok, msg, info = swap_manager.swap(
             req.pool_id, addr, req.from_token, amount_in,
         )
@@ -1872,6 +1892,12 @@ def create_app(port: int, data_file: str, self_url: str,
         Принять подписанную транзакцию от кошелька (мобильного/десктопного).
         Приватный ключ НЕ передаётся — только подпись и публичный ключ.
         """
+        # AUTO-FEE-FIX: если fee=0 — считаем сами, но подпись уже сделана
+        # на клиенте с fee=0. Поэтому отдаём правильный fee только если
+        # клиент его не передал И может быть подписан с ним.
+        # В нашем случае: подпись валидируется с фактическим fee, поэтому
+        # если клиент подписал с fee=0, а мы подменим — подпись не сойдётся.
+        # Значит для /tx/submit требуем, чтобы клиент сам передал fee.
         tx = Transaction(
             sender=req.sender,
             recipient=req.recipient,
@@ -1915,6 +1941,87 @@ def create_app(port: int, data_file: str, self_url: str,
             "mempool_size": blockchain.mempool.size(),
             "broadcast_to_peers": broadcast_count,
         }
+
+    # =========================================================================
+    # CUSTOM-NETWORK: MetaMask / Trust Wallet
+    # =========================================================================
+
+    @app.get("/network/config")
+    def network_config():
+        """JSON для кнопки «Add Network» в MetaMask."""
+        return {
+            "chainId": hex(config.CHAIN_ID),
+            "chainName": config.NETWORK_NAME,
+            "nativeCurrency": {
+                "name": config.NETWORK_SYMBOL,
+                "symbol": config.NETWORK_SYMBOL,
+                "decimals": config.NETWORK_DECIMALS,
+            },
+            "rpcUrls": [f"{self_url}/rpc"],
+            "blockExplorerUrls": [],
+        }
+
+    @app.post("/rpc")
+    def rpc_handler(req: dict):
+        """
+        Минимальный Ethereum JSON-RPC — для MetaMask/Trust.
+        Поддерживает: eth_chainId, net_version, eth_blockNumber,
+        eth_getBalance, eth_accounts, eth_gasPrice, eth_syncing,
+        web3_clientVersion, eth_call (заглушка), eth_estimateGas.
+        """
+        method = req.get("method", "")
+        params = req.get("params", [])
+        req_id = req.get("id", 1)
+
+        def _ok(result):
+            return {"jsonrpc": "2.0", "id": req_id, "result": result}
+
+        def _err(code, msg):
+            return {"jsonrpc": "2.0", "id": req_id,
+                    "error": {"code": code, "message": msg}}
+
+        if method == "eth_chainId":
+            return _ok(hex(config.CHAIN_ID))
+
+        if method == "net_version":
+            return _ok(str(config.CHAIN_ID))
+
+        if method == "web3_clientVersion":
+            return _ok(f"AIX-OS/v{config.VERSION}")
+
+        if method == "eth_blockNumber":
+            return _ok(hex(blockchain.height()))
+
+        if method == "eth_syncing":
+            return _ok(False)
+
+        if method == "eth_gasPrice":
+            return _ok("0x0")
+
+        if method == "eth_accounts":
+            return _ok([])
+
+        if method == "eth_getBalance":
+            try:
+                addr = params[0] if params else ""
+                # MetaMask отправляет 0x-адреса, но у нас AIX-адреса.
+                # Возвращаем 0, если не можем сопоставить.
+                bal = 0
+                if addr and addr.startswith("AIX"):
+                    bal = blockchain.get_balance(addr)
+                return _ok(hex(bal))
+            except Exception:
+                return _ok("0x0")
+
+        if method == "eth_call":
+            # Заглушка — MetaMask вызывает для проверки контрактов
+            return _ok("0x")
+
+        if method == "eth_estimateGas":
+            return _ok("0x5208")  # 21000 в hex
+
+        # Всё остальное — ошибка method not found
+        return _err(-32601, f"Method not found: {method}")
 
     # =========================================================================
     # P2P

@@ -215,7 +215,7 @@ if __name__ == "__main__":
     tx = Transaction(
         sender=alice_addr,
         recipient=bob_addr,
-        amount=100 * 10**18,
+        amount=100 * 10**8,
         message="Первый перевод в AIX!",
     )
     tx.sign_transaction(alice_sk)
@@ -242,7 +242,7 @@ if __name__ == "__main__":
 
     # Проверяем, что подделка провалится
     print("🕵️ Пытаюсь подделать данные в блоке...")
-    block1.transactions[0].amount = 999999 * 10**18
+    block1.transactions[0].amount = 999999 * 10**8
     ok, msg = block1.is_valid(previous_block=genesis, difficulty=4)
     print(f"   Результат: {ok} — {msg}")
     print(f"   Ожидалось: False (хеш не сойдётся)\n")

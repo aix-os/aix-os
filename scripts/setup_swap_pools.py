@@ -57,7 +57,7 @@ TOKEN_PRICES_USD = {
 AIX_PER_POOL = 1000.0
 USD_PER_POOL = AIX_PER_POOL * AIX_PRICE_USD  # = 100 000
 
-SATO = 10 ** 18
+SATO = config.SATOSHI
 
 
 def build_pools():

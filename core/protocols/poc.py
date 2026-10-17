@@ -584,8 +584,8 @@ if __name__ == "__main__":
 
     # 1. Донат (симулируем — без блокчейна)
     print("1. Донат в фонд (симуляция):")
-    mgr.pool.total_donated += 10000 * 10**18
-    mgr.pool.donations.append({"address": alice, "amount": 10000 * 10**18, "time": time.time()})
+    mgr.pool.total_donated += 10000 * 10**8
+    mgr.pool.donations.append({"address": alice, "amount": 10000 * 10**8, "time": time.time()})
     print(f"   Фонд: {mgr.pool.balance_aix():.2f} AIX")
     print()
 
@@ -596,7 +596,7 @@ if __name__ == "__main__":
         category="CODE",
         title="Реализовал P2P-сеть",
         description="Написал модуль peer_manager.py, добавил синхронизацию",
-        requested_reward=1500 * 10**18,
+        requested_reward=1500 * 10**8,
         proof_url="https://github.com/aix-os/pr/42",
     )
     print(f"   {ok} — ID: {cid}")
