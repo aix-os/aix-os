@@ -237,3 +237,4 @@ scripts/build_apk.py
 scripts/create_multi_pools.py
 scripts/update_readme.py
 scripts/cleanup_git_scripts.py
+data/
