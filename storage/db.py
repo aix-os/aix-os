@@ -17,6 +17,7 @@ from core.block import Block
 from core.chain import Blockchain
 from core.transaction import Transaction
 from core.mempool import Mempool
+import config
 
 class ChainStorage:
     """Управляет сохранением и загрузкой цепочки."""
@@ -52,6 +53,9 @@ class ChainStorage:
         chain = Blockchain.__new__(Blockchain)
         chain.chain = [Block.from_dict(b) for b in data["chain"]]
         chain.difficulty = data.get("difficulty", 4)
+        # 🆕 Per-block: поднять текущую сложность до INITIAL, чтобы новые блоки были не ниже
+        if chain.difficulty < config.INITIAL_DIFFICULTY:
+            chain.difficulty = config.INITIAL_DIFFICULTY
 
         # Восстанавливаем mempool — критически важно!
         chain.mempool = Mempool()

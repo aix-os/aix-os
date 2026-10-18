@@ -69,7 +69,10 @@ class Blockchain:
 
     def add_block(self, block: Block) -> tuple:
         previous_block = self.last_block()
-        ok, msg = block.is_valid(previous_block=previous_block, difficulty=self.difficulty)
+        # 🆕 Per-block difficulty: новый блок наследует текущую сложность
+        if block.difficulty == 0:
+            block.difficulty = self.difficulty
+        ok, msg = block.is_valid(previous_block=previous_block, difficulty=block.difficulty)
         if not ok:
             return False, f"Блок невалиден: {msg}"
 

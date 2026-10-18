@@ -2256,6 +2256,48 @@ def cmd_faucet_set_treasury(a):
     return 0
 
 
+
+# =============================================================================
+# P2P
+# =============================================================================
+
+def cmd_p2p_list(a):
+    url = _node_url(a)
+    d = _node_get(url, "/p2p/orders")
+    if not d:
+        print(f"{Fore.RED}❌ Нода {url} не отвечает"); return 1
+    print(f"{Fore.CYAN}🔄 P2P ордера: {d['count']}")
+    if not d["orders"]:
+        print(f"   {Fore.YELLOW}Нет активных ордеров."); return 0
+    rows = []
+    for o in d["orders"]:
+        rows.append([
+            o["id"],
+            f"{o['amount_raw'] / 10**8:.2f}",
+            f"{o['price_rub_per_aix']:.2f} ₽",
+            f"{o['min_amount_raw'] / 10**8:.2f}-{o['max_amount_raw'] / 10**8:.2f}",
+            o["payment_method"],
+            o["status"],
+            o["seller"][:16] + "...",
+        ])
+    print(tabulate(rows, headers=["ID", "AIX", "Цена", "Мин-Макс", "Оплата", "Статус", "Продавец"],
+                   tablefmt="rounded_outline"))
+    return 0
+
+
+def cmd_p2p_stats(a):
+    url = _node_url(a)
+    d = _node_get(url, "/p2p/stats")
+    if not d:
+        print(f"{Fore.RED}❌ Нода {url} не отвечает"); return 1
+    print(f"{Fore.CYAN}🔄 P2P — статистика\n")
+    print(f"   Всего ордеров:  {Fore.YELLOW}{d['total_orders']}")
+    print(f"   Объём (₽):      {Fore.YELLOW}{d['total_volume_rub']:.2f}")
+    if d.get("by_status"):
+        print(f"   По статусу:     {d['by_status']}")
+    return 0
+
+
 # =============================================================================
 # ГЛАВНАЯ
 # =============================================================================
@@ -2424,6 +2466,13 @@ def main():
     slp = ssw.add_parser("lp"); slp.add_argument("pool_id"); slp.add_argument("who")
     slp.set_defaults(func=cmd_swap_lp)
     ssw.add_parser("stats").set_defaults(func=cmd_swap_stats)
+
+    # 🔄 p2p — P2P обмен
+    pp2p = sub.add_parser("p2p", help="🔄 P2P обмен AIX на рубли")
+    pp2p.add_argument("--node", default=DEFAULT_NODE)
+    p2psub = pp2p.add_subparsers(dest="p2p_cmd", required=True)
+    p2psub.add_parser("list", help="Активные ордера").set_defaults(func=cmd_p2p_list)
+    p2psub.add_parser("stats", help="Статистика").set_defaults(func=cmd_p2p_stats)
 
     # 🧬 poc
     ppoc = sub.add_parser("poc", help="🧬 Proof of Contribution (награды за вклад)")

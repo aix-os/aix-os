@@ -44,6 +44,7 @@ class Block:
     nonce: int = 0                              # Число для PoW
     hash: str = ""                              # Хеш этого блока
     merkle_root: str = ""                       # Хеш всех транзакций
+    difficulty: int = 0                          # 🆕 Сложность блока (НЕ входит в хэш)
 
     # =========================================================================
     # ХЕШИРОВАНИЕ
@@ -88,6 +89,7 @@ class Block:
 
         Возвращает количество попыток (для статистики).
         """
+        self.difficulty = difficulty   # 🆕 запоминаем сложность
         target_prefix = "0" * difficulty
         attempts = 0
 
@@ -105,7 +107,7 @@ class Block:
     # ВАЛИДАЦИЯ
     # =========================================================================
 
-    def is_valid(self, previous_block: Optional["Block"] = None, difficulty: int = 4) -> tuple[bool, str]:
+    def is_valid(self, previous_block: Optional["Block"] = None, difficulty: int = None) -> tuple[bool, str]:
         """
         Проверка блока:
         1. Хеш блока действительно такой, как посчитано
@@ -114,6 +116,10 @@ class Block:
         4. Все транзакции валидны
         5. Merkle root совпадает
         """
+        # 🆕 Если difficulty не передан — берём из блока
+        if difficulty is None:
+            difficulty = self.difficulty if self.difficulty > 0 else 1
+
         # 1. Хеш корректен
         if self.hash != self.calculate_hash():
             return False, "Хеш блока не соответствует содержимому"
@@ -158,6 +164,9 @@ class Block:
         data["transactions"] = [
             Transaction.from_dict(tx) for tx in data.get("transactions", [])
         ]
+        # 🆕 Обратная совместимость: старые блоки без difficulty майнились с 1
+        if not data.get("difficulty"):
+            data["difficulty"] = 1
         return cls(**data)
 
     def to_json(self) -> str:

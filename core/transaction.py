@@ -30,8 +30,8 @@ from crypto.address import is_valid_address, pubkey_to_address
 import ecdsa
 
 
-SYSTEM_SENDERS = {"COINBASE", "LOTTERY", "POC-POOL"}
-SYSTEM_RECIPIENTS = {"BURN", "POC-POOL", "TREASURY"}
+SYSTEM_SENDERS = {"COINBASE", "LOTTERY", "POC-POOL", "P2P-ESCROW", "FAUCET"}
+SYSTEM_RECIPIENTS = {"BURN", "POC-POOL", "P2P-ESCROW", "TREASURY"}
 
 # Комиссия сети: 0.1% от суммы перевода
 FEE_PERCENT = 0.1  # 0.1%
