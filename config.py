@@ -27,7 +27,7 @@ ADDRESS_PREFIX = "AIX"
 
 MAX_SUPPLY = 21000000000       # Максимум AIX (как Bitcoin — 21 млн)
 DECIMALS = 8                 # Знаков после запятой
-SATOSHI = 10 ** DECIMALS      # 1 AIX = 10^18 атомарных единиц
+SATOSHI = 10 ** DECIMALS      # 1 AIX = 10^8 атомарных единиц
 
 
 # =============================================================================
@@ -157,4 +157,3 @@ CHAIN_ID = 21069          # уникальный ID, не занят в chainlis
 NETWORK_NAME = "AIX OS"
 NETWORK_SYMBOL = "AIX"
 NETWORK_DECIMALS = 18
-
