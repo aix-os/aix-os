@@ -170,8 +170,9 @@ class BurnToMintManager:
             return False, "Нет блокчейна для сжигания", None
 
         # Проверяем баланс
+        fee_raw = int(price_raw * 0.001)  # 0.1% комиссия
         balance = bc.get_balance(owner)
-        if balance < price_raw:
+        if balance < price_raw + fee_raw:
             return False, (f"Недостаточно AIX. Нужно: {info['price_aix']}, "
                           f"у вас: {balance / config.SATOSHI:.2f}"), None
 
@@ -190,6 +191,7 @@ class BurnToMintManager:
             sender=owner,
             recipient="BURN",
             amount=price_raw,
+            fee=fee_raw,
             message=f"🔥 Burn-to-Mint: {info['name']}",
         )
         tx.sign_transaction(sk)
