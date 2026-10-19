@@ -16,7 +16,7 @@ dependencies:
   provider: ^6.1.2
   shared_preferences: ^2.3.2
   flutter_secure_storage: ^9.2.2
-  mobile_scanner: ^5.2.3
+  mobile_scanner: ^7.1.2   # <-- Обновлено
   qr_flutter: ^4.1.0
   intl: ^0.19.0
   url_launcher: ^6.3.0

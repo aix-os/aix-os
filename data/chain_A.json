@@ -1,5 +1,5 @@
 {
-  "height": 85140,
+  "height": 85142,
   "difficulty": 5,
   "chain": [
     {
@@ -2071801,18 +2071801,59 @@
       "hash": "000005a89ae0a35c98173b8316c2a6bd2ec088d9ef4c6ea2d74746c52444f97f",
       "merkle_root": "922ddafcf6416814f4acbb499f4878e7ee6c104d5418e860e995f9d3a84fce1c",
       "difficulty": 4
+    },
+    {
+      "index": 85141,
+      "timestamp": 1792421037.7084386,
+      "transactions": [
+        {
+          "sender": "COINBASE",
+          "recipient": "AIXTARDzT5SqCZqeBRa5pNgLjZjQuZjbLk9zX",
+          "amount": 500000.0,
+          "timestamp": 1792421037.7077851,
+          "fee": 0,
+          "public_key": "",
+          "signature": "",
+          "message": "AIX OS — майнинг награда"
+        },
+        {
+          "sender": "AIXTXaKGuNrLDvdoy5roqDjDkLr7iojn7BapV",
+          "recipient": "AIXTCAm7EZLEeBL5ujQ83a71EAqoNbXz3Gwxk",
+          "amount": 1000000000,
+          "timestamp": 1792317991.082997,
+          "fee": 1000000.0,
+          "public_key": "0284086e74df5159b59f0e0d6c78de01cf09e0b288557595e5daf8a7dd131428da",
+          "signature": "3044022014c601b29f5e841d569c1254cc9627d4ca9214c06ce6ddcc86fcb57bff2059c30220449198b9cabff08d4ec14b448c3282acfd9e2d49822ebd4a77409e337e0a6903",
+          "message": "AIX faucet"
+        }
+      ],
+      "previous_hash": "000005a89ae0a35c98173b8316c2a6bd2ec088d9ef4c6ea2d74746c52444f97f",
+      "nonce": 1138561,
+      "hash": "00000e8d3d3bb397a8d2e4ea16f2beb8d88ace5fe5dbf2501142ea54d6f264cf",
+      "merkle_root": "623a8c9b512401af1a1e78ce231a45e9f4346ad2c0b0ba1f17b917c49d9ddffd",
+      "difficulty": 5
+    },
+    {
+      "index": 85142,
+      "timestamp": 1792421478.6844645,
+      "transactions": [
+        {
+          "sender": "COINBASE",
+          "recipient": "AIXTARDzT5SqCZqeBRa5pNgLjZjQuZjbLk9zX",
+          "amount": 500000.0,
+          "timestamp": 1792421478.6833956,
+          "fee": 0,
+          "public_key": "",
+          "signature": "",
+          "message": "AIX OS — майнинг награда"
+        }
+      ],
+      "previous_hash": "00000e8d3d3bb397a8d2e4ea16f2beb8d88ace5fe5dbf2501142ea54d6f264cf",
+      "nonce": 1338852,
+      "hash": "000007cefbaa81985b29370c7f7d652141acadd81c90cdadd6900d39e263c20b",
+      "merkle_root": "d3b17917c764c8fe4079e35ff6a6bfe22d1def52e36c899bbf8a66bf52885a00",
+      "difficulty": 5
     }
   ],
-  "mempool": [
-    {
-      "sender": "AIXTXaKGuNrLDvdoy5roqDjDkLr7iojn7BapV",
-      "recipient": "AIXTCAm7EZLEeBL5ujQ83a71EAqoNbXz3Gwxk",
-      "amount": 1000000000,
-      "timestamp": 1792317991.082997,
-      "fee": 1000000.0,
-      "public_key": "0284086e74df5159b59f0e0d6c78de01cf09e0b288557595e5daf8a7dd131428da",
-      "signature": "3044022014c601b29f5e841d569c1254cc9627d4ca9214c06ce6ddcc86fcb57bff2059c30220449198b9cabff08d4ec14b448c3282acfd9e2d49822ebd4a77409e337e0a6903",
-      "message": "AIX faucet"
-    }
-  ]
+  "mempool": []
 }
