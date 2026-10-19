@@ -59,6 +59,8 @@ from core.protocols.p2p import (
 
 from storage.db import ChainStorage
 from network.peer_manager import PeerManager
+from network.discovery import MdnsDiscovery
+from network.discovery import MdnsDiscovery
 from core.governance.dao import DAOManager
 from core.protocols.faucet import FaucetManager, FAUCET_AMOUNT_AIX
 from ai.brain import BrainAgent, BrainConfig
@@ -373,6 +375,8 @@ def create_app(port: int, data_file: str, self_url: str,
         blockchain = loaded
 
     peer_manager = PeerManager(self_url, storage_path=peers_file)
+    mdns = MdnsDiscovery(port, peer_manager)
+    mdns = MdnsDiscovery(port, peer_manager)
     gift_manager = GiftLinkManager(gifts_file, blockchain=blockchain)
     timelock_manager = TimeLockManager(timelocks_file, blockchain=blockchain)
     sbt_manager = SBTManager(sbt_file, blockchain=blockchain)
@@ -433,6 +437,8 @@ def create_app(port: int, data_file: str, self_url: str,
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        mdns.start()
+        mdns.start()
         task = asyncio.create_task(
             background_sync(blockchain, storage, peer_manager, port)
         )
@@ -472,6 +478,8 @@ def create_app(port: int, data_file: str, self_url: str,
         except Exception as e:
             print(f"[{port}] WARN: финальный save упал: {e}")
 
+        mdns.stop()
+        mdns.stop()
         task.cancel()
         try:
             await task
