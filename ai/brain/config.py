@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 
 DEFAULT_BASE_URL = "http://127.0.0.1:11434"
-DEFAULT_MODEL = "qwen2.5:3b"
+DEFAULT_MODEL = "qwen2.5:1.5b"
 DEFAULT_TIMEOUT = 300
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_MAX_TOKENS = 2048
