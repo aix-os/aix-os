@@ -60,6 +60,8 @@ from core.protocols.p2p import (
 from storage.db import ChainStorage
 from network.peer_manager import PeerManager
 from network.discovery import MdnsDiscovery
+from core.protocols.messenger import MessengerManager
+from core.protocols.messenger import MessengerManager
 from network.discovery import MdnsDiscovery
 from core.governance.dao import DAOManager
 from core.protocols.faucet import FaucetManager, FAUCET_AMOUNT_AIX
@@ -253,6 +255,16 @@ class PoCRejectRequest(BaseModel):
 
 class PoCPayRequest(BaseModel):
     contribution_id: str
+class MessageSendRequest(BaseModel):
+    sender: str
+    recipient: str
+    text: str
+
+class MessageSendRequest(BaseModel):
+    sender: str
+    recipient: str
+    text: str
+
 class AIRememberRequest(BaseModel):
     text: str
     kind: str = "THOUGHT"
@@ -388,6 +400,8 @@ def create_app(port: int, data_file: str, self_url: str,
     poc_manager = PoCManager(poc_file, blockchain=blockchain)
     ai_memory_path = Path(data_file).parent / "ai_memory.json"
     ai_memory = AIMemoryManager(ai_memory_path)
+    messenger = MessengerManager(Path(data_file).parent / "messenger.json")
+    messenger = MessengerManager(Path(data_file).parent / "messenger.json")
     p2p_manager = P2PManager(p2p_file, blockchain=blockchain)
 
 
@@ -437,8 +451,7 @@ def create_app(port: int, data_file: str, self_url: str,
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        mdns.start()
-        mdns.start()
+        await mdns.start()
         task = asyncio.create_task(
             background_sync(blockchain, storage, peer_manager, port)
         )
@@ -478,8 +491,7 @@ def create_app(port: int, data_file: str, self_url: str,
         except Exception as e:
             print(f"[{port}] WARN: финальный save упал: {e}")
 
-        mdns.stop()
-        mdns.stop()
+        await mdns.stop()
         task.cancel()
         try:
             await task
@@ -2326,6 +2338,36 @@ def create_app(port: int, data_file: str, self_url: str,
                     "swap_pools": len(swap_manager),
                     "poc_contributions": len(poc_manager),
                 }}
+
+
+    @app.post("/messages/send")
+    def messages_send(req: MessageSendRequest):
+        msg = messenger.send(req.sender, req.recipient, req.text)
+        return {"status": "ok", "message": msg.to_dict()}
+
+    @app.get("/messages/dialogs/{address}")
+    def messages_dialogs(address: str):
+        return {"dialogs": messenger.get_dialogs(address)}
+
+    @app.get("/messages/chat/{address1}/{address2}")
+    def messages_chat(address1: str, address2: str):
+        msgs = messenger.get_chat(address1, address2)
+        return {"messages": [m.to_dict() for m in msgs]}
+
+
+    @app.post("/messages/send")
+    def messages_send(req: MessageSendRequest):
+        msg = messenger.send(req.sender, req.recipient, req.text)
+        return {"status": "ok", "message": msg.to_dict()}
+
+    @app.get("/messages/dialogs/{address}")
+    def messages_dialogs(address: str):
+        return {"dialogs": messenger.get_dialogs(address)}
+
+    @app.get("/messages/chat/{address1}/{address2}")
+    def messages_chat(address1: str, address2: str):
+        msgs = messenger.get_chat(address1, address2)
+        return {"messages": [m.to_dict() for m in msgs]}
 
     return app
 

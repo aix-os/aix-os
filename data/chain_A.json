@@ -1,5 +1,5 @@
 {
-  "height": 85142,
+  "height": 85145,
   "difficulty": 5,
   "chain": [
     {
@@ -2071852,6 +2071852,109 @@
       "nonce": 1338852,
       "hash": "000007cefbaa81985b29370c7f7d652141acadd81c90cdadd6900d39e263c20b",
       "merkle_root": "d3b17917c764c8fe4079e35ff6a6bfe22d1def52e36c899bbf8a66bf52885a00",
+      "difficulty": 5
+    },
+    {
+      "index": 85143,
+      "timestamp": 1792428838.7151642,
+      "transactions": [
+        {
+          "sender": "COINBASE",
+          "recipient": "AIXTARDzT5SqCZqeBRa5pNgLjZjQuZjbLk9zX",
+          "amount": 500000.0,
+          "timestamp": 1792428838.714798,
+          "fee": 0,
+          "public_key": "",
+          "signature": "",
+          "message": "AIX OS — майнинг награда"
+        },
+        {
+          "sender": "AIXTVTqmwJezMB1oBwsDJe3MnWeskiUhpM2zc",
+          "recipient": "BURN",
+          "amount": 10000000000,
+          "timestamp": 1792426079.3760955,
+          "fee": 10000000,
+          "public_key": "024ad358e705bba8e7cbb21b14e1efbb9748133b3ff3898b0da6c9e037dfb7d519",
+          "signature": "304502205df3ca4246292a4aae1e5c957dacf68ace9216eee3fc2e035190ad8d10c4c697022100f4c35653022849bb77fe70918dc645ec543d94610ec2bf54726c05576f3891bf",
+          "message": "🔥 Burn-to-Mint: Уголёк"
+        },
+        {
+          "sender": "AIXTARDzT5SqCZqeBRa5pNgLjZjQuZjbLk9zX",
+          "recipient": "BURN",
+          "amount": 10000000000,
+          "timestamp": 1792427450.616979,
+          "fee": 10000000,
+          "public_key": "037b0cd39e568c7f0582f82bd3183e95aba9e84a207bd8559d0d00d6c3efc9ddaa",
+          "signature": "3045022100effc5f978862536edccb94d17a9ac122be34b49b28514adf966706748679f18502203e1a39d95216bba458d034868d57ec7d0f9a33b061fa6797d1a8a382ba0865e5",
+          "message": "🔥 Burn-to-Mint: Уголёк"
+        },
+        {
+          "sender": "AIXTARDzT5SqCZqeBRa5pNgLjZjQuZjbLk9zX",
+          "recipient": "BURN",
+          "amount": 10000000000,
+          "timestamp": 1792428838.5814989,
+          "fee": 10000000,
+          "public_key": "037b0cd39e568c7f0582f82bd3183e95aba9e84a207bd8559d0d00d6c3efc9ddaa",
+          "signature": "3045022100e7c942fe7d2ab783d0ce7d482e001f1d852a5382feb90ad084e93e0c81f8dee5022051d8eb7e3480b54432309f4ea4fa32d3a36f58a94af49b938a72aaca3474a0bb",
+          "message": "🔥 Burn-to-Mint: Уголёк"
+        }
+      ],
+      "previous_hash": "000007cefbaa81985b29370c7f7d652141acadd81c90cdadd6900d39e263c20b",
+      "nonce": 2279037,
+      "hash": "000003992415613025acbc68d065620171f69f11643d97f4e8069046c2df9a2a",
+      "merkle_root": "2f5bd1e16f3ebdb1dcc420152d7e4e3e9662ce19155b8fc366e901b7b628b928",
+      "difficulty": 5
+    },
+    {
+      "index": 85144,
+      "timestamp": 1792429293.205677,
+      "transactions": [
+        {
+          "sender": "COINBASE",
+          "recipient": "AIXTARDzT5SqCZqeBRa5pNgLjZjQuZjbLk9zX",
+          "amount": 500000.0,
+          "timestamp": 1792429293.2056642,
+          "fee": 0,
+          "public_key": "",
+          "signature": "",
+          "message": "AIX OS — майнинг награда"
+        }
+      ],
+      "previous_hash": "000003992415613025acbc68d065620171f69f11643d97f4e8069046c2df9a2a",
+      "nonce": 807887,
+      "hash": "000006e096867d8ee07b354fcf30289b49c89df029c3287a30c5ae7ed67c53da",
+      "merkle_root": "ac5d19ad7fee9b94a70342ad5a8bc0ce82000627f262587492955b440c00fc8c",
+      "difficulty": 5
+    },
+    {
+      "index": 85145,
+      "timestamp": 1792432786.487388,
+      "transactions": [
+        {
+          "sender": "COINBASE",
+          "recipient": "AIXTARDzT5SqCZqeBRa5pNgLjZjQuZjbLk9zX",
+          "amount": 500000.0,
+          "timestamp": 1792432786.487307,
+          "fee": 0,
+          "public_key": "",
+          "signature": "",
+          "message": "AIX OS — майнинг награда"
+        },
+        {
+          "sender": "AIXTARDzT5SqCZqeBRa5pNgLjZjQuZjbLk9zX",
+          "recipient": "AIXTVTqmwJezMB1oBwsDJe3MnWeskiUhpM2zc",
+          "amount": 1000000000,
+          "timestamp": 1792432767,
+          "fee": 1000000,
+          "public_key": "037b0cd39e568c7f0582f82bd3183e95aba9e84a207bd8559d0d00d6c3efc9ddaa",
+          "signature": "30450220734f4a60167a5106868e254d62e6a1969803b711bd7c46c28d3f645b27151208022100f545d431ba246488c01b3c29029645a8cc8e5748d7074cb714b666852619edc6",
+          "message": ""
+        }
+      ],
+      "previous_hash": "000006e096867d8ee07b354fcf30289b49c89df029c3287a30c5ae7ed67c53da",
+      "nonce": 1580031,
+      "hash": "00000f32779eaa1c18f3e4fd6b4856975080ae66507ea0b3061f710ead0c1dfa",
+      "merkle_root": "7648eaaeb5b9c8cc808f7503c9771806aa2c36a4829157da9b91ff92421e4018",
       "difficulty": 5
     }
   ],
