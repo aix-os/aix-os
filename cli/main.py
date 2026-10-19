@@ -77,9 +77,54 @@ def cmd_wallet_new(a):
     print(f"   {Fore.CYAN}Адрес: {Fore.YELLOW}{w.address}")
     print(f"   {Fore.CYAN}Файл:  {path}")
     print(f"   {Fore.RED}⚠️  Приватный ключ в файле. Никому не показывай!")
-    print(f"\n   {Fore.CYAN}Зарегистрируй AIX-ID: aix id register {a.name} <имя>")
-    return 0
 
+    # 🆕 Автоматическая регистрация AIX-ID
+    aix_name = a.name.lower().strip()
+    try:
+        from core.protocols.aix_id import validate_name
+        ok_name, msg_name = validate_name(aix_name)
+    except Exception as e:
+        ok_name, msg_name = False, f"ошибка импорта: {e}"
+
+    if not ok_name:
+        print()
+        print(f"   {Fore.YELLOW}⚠️  AIX-ID не зарегистрирован: имя '{aix_name}' не подходит ({msg_name})")
+        print(f"   {Fore.CYAN}Зарегистрируй вручную с другим именем: aix id register {a.name} <имя>")
+        return 0
+
+    url = _node_url(a)
+    status = _node_get(url, "/status")
+    if not status:
+        print()
+        print(f"   {Fore.YELLOW}⚠️  Нода {url} не отвечает — AIX-ID не зарегистрирован.")
+        print(f"   {Fore.CYAN}Запусти ноду и выполни: aix id register {a.name} {aix_name}")
+        return 0
+
+    payload = {
+        "address": w.address,
+        "name": aix_name,
+        "display_name": a.name,
+        "avatar": "👤",
+        "bio": "",
+    }
+    try:
+        r = requests.post(f"{url}/id/register", json=payload, timeout=10)
+        if r.status_code == 200:
+            d = r.json()
+            print()
+            print(f"   {Fore.GREEN}✅ AIX-ID зарегистрирован: @{d['name']}")
+            print(f"   {Fore.CYAN}Теперь можно отправлять по имени: {Fore.YELLOW}aix node send {a.name} @{d['name']} 10")
+        else:
+            detail = r.json().get("detail", r.text)
+            print()
+            print(f"   {Fore.YELLOW}⚠️  AIX-ID не зарегистрирован: {detail}")
+            print(f"   {Fore.CYAN}Зарегистрируй вручную: aix id register {a.name} <другое_имя>")
+    except requests.RequestException as e:
+        print()
+        print(f"   {Fore.YELLOW}⚠️  Ошибка регистрации AIX-ID: {e}")
+        print(f"   {Fore.CYAN}Зарегистрируй вручную: aix id register {a.name} {aix_name}")
+
+    return 0
 
 def cmd_wallet_list(a):
     names = Wallet.list_wallets()
