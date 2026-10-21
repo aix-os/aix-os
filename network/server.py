@@ -39,7 +39,7 @@ from core.protocols.contacts import (
     ContactsManager, Contact, phone_hash, normalize_phone, validate_phone,
 )
 from core.protocols.swap import (
-    SwapManager, SwapPool, SIM_TOKENS, FAUCET_AMOUNT,
+    SwapManager, SwapPool, TOKEN_CATALOG, FAUCET_AMOUNT,
 )
 from core.protocols.poc import (
     PoCManager, Contribution, RewardPool, CATEGORIES,
@@ -65,6 +65,7 @@ from network.peer_manager import PeerManager
 from network.ws_manager import ConnectionManager
 from network.discovery import MdnsDiscovery
 from core.protocols.messenger import MessengerManager
+from core.protocols.fiat import FiatManager, AIX_PRICE_RUB
 from network.discovery import MdnsDiscovery
 from core.governance.dao import DAOManager
 from core.protocols.faucet import FaucetManager, FAUCET_AMOUNT_AIX
@@ -428,6 +429,7 @@ def create_app(port: int, data_file: str, self_url: str,
     ai_memory_path = Path(data_file).parent / "ai_memory.json"
     ai_memory = AIMemoryManager(ai_memory_path)
     messenger = MessengerManager(Path(data_file).parent / "messenger.json")
+    fiat_manager = FiatManager(Path(data_file).parent / f"fiat_{port}.json", blockchain)
     ws_manager = ConnectionManager()
     p2p_manager = P2PManager(p2p_file, blockchain=blockchain)
 
@@ -1414,7 +1416,7 @@ def create_app(port: int, data_file: str, self_url: str,
 
     @app.get("/swap/tokens")
     def swap_tokens():
-        return {"tokens": SIM_TOKENS}
+        return {"tokens": TOKEN_CATALOG}
 
     @app.get("/swap/stats")
     def swap_stats():
@@ -1424,6 +1426,26 @@ def create_app(port: int, data_file: str, self_url: str,
     def swap_balances(address: str):
         addr = resolve_who(address)
         return {"address": addr, "balances": swap_manager.all_balances(addr)}
+
+
+    @app.post("/swap/sync_balance")
+    def swap_sync_balance(req: SwapFaucetRequest):
+        """Синхронизирует реальный баланс AIX из блокчейна в Swap."""
+        addr = resolve_who(req.address)
+        # Получаем реальный баланс из блокчейна (в атомарных единицах)
+        real_balance = blockchain.get_balance(addr)
+        
+        # Получаем текущий "виртуальный" баланс в Swap
+        swap_balance = swap_manager.get_balance(addr, "AIX")
+        
+        # Если в блокчейне больше, чем в свапе, начисляем разницу
+        if real_balance > swap_balance:
+            diff = real_balance - swap_balance
+            swap_manager.add_balance(addr, "AIX", diff)
+            swap_manager._save()
+            return {"status": "synced", "added": diff / config.SATOSHI}
+        
+        return {"status": "ok", "balance": swap_balance / config.SATOSHI}
 
     @app.post("/swap/faucet")
     def swap_faucet(req: SwapFaucetRequest):
@@ -2091,6 +2113,63 @@ def create_app(port: int, data_file: str, self_url: str,
         # Всё остальное — ошибка method not found
         return _err(-32601, f"Method not found: {method}")
 
+
+
+    # =========================================================================
+    # FIAT ON-RAMP
+    # =========================================================================
+    
+    from pydantic import BaseModel
+    class FiatCreateRequest(BaseModel):
+        address: str
+        amount_rub: float
+
+    @app.get("/fiat/rate")
+    def fiat_rate():
+        return {"rub_per_aix": AIX_PRICE_RUB, "usd_per_aix": 100.0}
+
+    @app.post("/fiat/create_invoice")
+    def fiat_create(req: FiatCreateRequest):
+        inv = fiat_manager.create_invoice(req.address, req.amount_rub)
+        # В реальности здесь был бы запрос к API ЮMoney для получения ссылки
+        # Сейчас мы даем фейковую ссылку, которая ведет на наш же симулятор
+        pay_url = f"/fiat/pay_mock?id={inv.id}"
+        return {"invoice_id": inv.id, "pay_url": pay_url, "amount_aix": inv.amount_aix, "amount_rub": inv.amount_rub}
+
+    @app.get("/fiat/pay_mock", response_class=HTMLResponse)
+    def fiat_pay_mock(id: str):
+        """Симулятор страницы оплаты ЮMoney."""
+        inv = fiat_manager.invoices.get(id)
+        if not inv: return "Счет не найден"
+        return f"""
+        <html><body style="background:#0A0E27;color:#fff;font-family:sans-serif;text-align:center;padding:50px;">
+            <h1>ЮMoney Симулятор</h1>
+            <p>Оплата счета: <b>{inv.amount_rub} ₽</b> за <b>{inv.amount_aix:.4f} AIX</b></p>
+            <p>Кошелек: {inv.address}</p>
+            <button onclick="pay()" style="padding:15px 30px; background:#FFD700; border:none; font-size:20px; cursor:pointer;">Оплатить</button>
+            <script>
+                async function pay() {{
+                    await fetch('/fiat/webhook?id={inv.id}', {{ method: 'POST' }});
+                    document.body.innerHTML = '<h1>✅ Оплачено!</h1><p>Вернитесь в кошелек AIX OS</p>';
+                }}
+            </script>
+        </body></html>
+        """
+
+    @app.post("/fiat/webhook")
+    def fiat_webhook(id: str):
+        """В реальности ЮMoney шлет сюда POST с подписью. Мы просто начисляем."""
+        ok = fiat_manager.mark_paid(id, blockchain)
+        if ok:
+            storage.save(blockchain)
+            return {"status": "ok"}
+        raise HTTPException(400, "Ошибка начисления")
+
+    @app.get("/fiat/invoice/{id}")
+    def fiat_get_invoice(id: str):
+        inv = fiat_manager.invoices.get(id)
+        if not inv: raise HTTPException(404, "Не найден")
+        return {"status": inv.status, "amount_aix": inv.amount_aix, "tx_id": inv.tx_id}
 
     # =========================================================================
     # P2P ОБМЕН

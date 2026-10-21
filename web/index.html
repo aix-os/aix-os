@@ -100,9 +100,9 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
 .pool-stat-label { color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
 .pool-stat-value { color:var(--neon); font-family:'Consolas',monospace; margin-top:2px; }
 .faucet-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-.sim-balance-row { display:flex; justify-content:space-between; align-items:center;
+.token-balance-row { display:flex; justify-content:space-between; align-items:center;
                    padding:8px 0; border-bottom:1px solid rgba(0,240,255,0.05); }
-.sim-balance-row:last-child { border-bottom:none; }
+.token-balance-row:last-child { border-bottom:none; }
 .lp-position { background:rgba(0,240,255,0.03); border:1px solid rgba(0,240,255,0.15);
                border-radius:10px; padding:15px; margin-bottom:10px; }
 .chart-box { background:var(--cosmos); border:1px solid rgba(0,240,255,0.15); border-radius:12px;
@@ -197,7 +197,7 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
 
     <div class="panel" id="panel-mining">
         <h2>⛏️ Майнинг</h2>
-        <div class="notice">Майнинг через ноду. Каждый блок = 50 AIX. Майни на любой кошелёк.</div>
+        <div class="notice">Майнинг через ноду. Каждый блок = 0.005 AIX. Майни на любой кошелёк.</div>
         <div class="card">
             <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Кошелёк-майнер</label>
             <select id="mine-wallet"></select>
@@ -241,7 +241,7 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
 
     <div class="panel" id="panel-swap">
         <h2>💱 Обмен токенов</h2>
-        <div class="notice">🤖 Синтетические токены внутри AIX OS. Не связаны с реальными блокчейнами. AMM: x*y=k, fee 0.3% (0.1% founder, 0.2% LP).</div>
+        <div class="notice">👑 Торгуй aCOIN внутри Империи AIX OS. AMM: x*y=k, fee 0.3% (0.1% тебе как создателю, 0.2% LP).</div>
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
                 <div>
@@ -251,7 +251,7 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
                 <button class="secondary small" onclick="refreshSwapBalances()">🔄 Обновить</button>
             </div>
             <h3>Ваши токены</h3>
-            <div id="sim-balances"><div class="empty">Загрузка...</div></div>
+            <div id="token-balances"><div class="empty">Загрузка...</div></div>
             <div class="faucet-row">
                 <button class="secondary small" onclick="faucet('AIX')">+1000 AIX</button>
                 <button class="secondary small" onclick="faucet('USDT')">+1000 USDT</button>
@@ -530,7 +530,7 @@ const $ = (id) => document.getElementById(id);
 let NODE_URL = "http://127.0.0.1:8010";
 let currentWallets = [];
 let currentPools = [];
-let SIM_TOKENS_LIST = [];
+let TOKEN_LIST = [];
 let CATEGORIES_LIST = [];
 let chainChart = null;
 
@@ -784,7 +784,7 @@ async function loadSwapTokens() {
     try {
         const d = await apiGet("/swap/tokens");
         const tokens = Object.keys(d.tokens);
-        SIM_TOKENS_LIST = tokens;
+        TOKEN_LIST = tokens;
         const opts = tokens.map(t => `<option value="${t}">${d.tokens[t].emoji} ${t}</option>`).join("");
         $("swap-from-token").innerHTML = opts;
         $("swap-to-token").innerHTML = opts;
@@ -794,21 +794,22 @@ async function loadSwapTokens() {
 }
 async function refreshSwapBalances() {
     const wn = $("swap-wallet").value;
-    if (!wn) { $("sim-balances").innerHTML = '<div class="empty">Выберите кошелёк</div>'; return; }
+    if (!wn) { $("token-balances").innerHTML = '<div class="empty">Выберите кошелёк</div>'; return; }
     const w = currentWallets.find(x => x.name === wn);
     if (!w) return;
     try {
+        await apiPost("/swap/sync_balance", { address: w.address, token: "AIX" });
         const d = await apiGet(`/swap/balances/${w.address}`);
         const bals = d.balances || {};
         const hasAny = Object.values(bals).some(b => b > 0);
-        if (!hasAny) { $("sim-balances").innerHTML = '<div class="empty">Пусто.</div>'; return; }
+        if (!hasAny) { $("token-balances").innerHTML = '<div class="empty">Пусто.</div>'; return; }
         let html = "";
-        for (const t of SIM_TOKENS_LIST) {
+        for (const t of TOKEN_LIST) {
             const bal = (bals[t] || 0) / 1e18;
-            if (bal > 0) html += `<div class="sim-balance-row"><span>${t}</span><strong style="color:var(--green);">${fmtToken(bal)}</strong></div>`;
+            if (bal > 0) html += `<div class="token-balance-row"><span>${t}</span><strong style="color:var(--green);">${fmtToken(bal)}</strong></div>`;
         }
-        $("sim-balances").innerHTML = html || '<div class="empty">Нули</div>';
-    } catch (e) { $("sim-balances").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`; }
+        $("token-balances").innerHTML = html || '<div class="empty">Нули</div>';
+    } catch (e) { $("token-balances").innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`; }
 }
 async function faucet(token) {
     const wn = $("swap-wallet").value;
@@ -858,7 +859,14 @@ async function updateQuote() {
         $("quote-price").textContent = `1 ${q.from_token} = ${q.execution_price.toFixed(6)} ${q.to_token}`;
         $("quote-slip").textContent = `${q.slippage_percent.toFixed(4)}%`;
         $("swap-btn").disabled = false;
-    } catch (e) { $("quote-box").style.display="none"; $("swap-btn").disabled=true; }
+    } catch (e) {
+        $("quote-box").style.display = "none";
+        $("swap-btn").disabled = true;
+        // Показываем реальную ошибку в интерфейсе!
+        const res = $("swap-result");
+        res.className = "result error show";
+        res.textContent = "⚠️ " + e.message;
+    }
 }
 async function executeSwap() {
     const wn = $("swap-wallet").value;

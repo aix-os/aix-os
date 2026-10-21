@@ -29,56 +29,51 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import config
 
+MIN_LIQUIDITY = 10 * 10**18
+FAUCET_AMOUNT = 1000 * 10**18
+FAUCET_COOLDOWN_SECONDS = 0
+
+MIN_RESERVE_PERCENT = 5
+DEFAULT_FEE_PERCENT = 0.3
+LP_FEE_PERCENT = 0.2  # 0.2% идет в пул ликвидности
+FOUNDER_FEE_PERCENT = 0.1  # 0.1% идет основателю
+FOUNDER_FEE_PERCENT = 0.1
+
 
 # =============================================================================
 # КОНСТАНТЫ
 # =============================================================================
 
-# Имя SIM_TOKENS оставлено для совместимости с network/server.py
-SIM_TOKENS = {
-    "AIX":   {"name": "AIX",   "emoji": "⚡", "decimals": 18},
-    "USDT":  {"name": "USDT",  "emoji": "💵", "decimals": 18},
-    "USDC":  {"name": "USDC",  "emoji": "💶", "decimals": 18},
-    "BTC":   {"name": "BTC",   "emoji": "🟠", "decimals": 18},
-    "ETH":   {"name": "ETH",   "emoji": "💎", "decimals": 18},
-    "BNB":   {"name": "BNB",   "emoji": "🟡", "decimals": 18},
-    "SOL":   {"name": "SOL",   "emoji": "🟣", "decimals": 18},
-    "TON":   {"name": "TON",   "emoji": "🔵", "decimals": 18},
-    "XRP":   {"name": "XRP",   "emoji": "💧", "decimals": 18},
-    "ADA":   {"name": "ADA",   "emoji": "🔷", "decimals": 18},
-    "DOGE":  {"name": "DOGE",  "emoji": "🐕", "decimals": 18},
-    "DOT":   {"name": "DOT",   "emoji": "🟥", "decimals": 18},
-    "MATIC": {"name": "MATIC", "emoji": "🟪", "decimals": 18},
-    "AVAX":  {"name": "AVAX",  "emoji": "🔺", "decimals": 18},
-    "LTC":   {"name": "LTC",   "emoji": "⚪", "decimals": 18},
-    "TRX":   {"name": "TRX",   "emoji": "🔻", "decimals": 18},
-    "LINK":  {"name": "LINK",  "emoji": "🔗", "decimals": 18},
-    "ATOM":  {"name": "ATOM",  "emoji": "⚛", "decimals": 18},
-    "UNI":   {"name": "UNI",   "emoji": "🦄", "decimals": 18},
-    "XMR":   {"name": "XMR",   "emoji": "🕶", "decimals": 18},
+# Имя TOKEN_CATALOG оставлено для совместимости с network/server.py
+# =============================================================================
+# 👑 AIX ИМПЕРИЯ — только нативный AIX и aCOIN (никаких -SIM)
+# =============================================================================
+A_COIN_CATALOG = {
+    "AIX":    {"name": "AIX OS (нативный)", "emoji": "⚡", "usd_price": 100.0},
+    "aBTC":   {"name": "AIX-Bitcoin", "emoji": "🟠", "usd_price": 90000.0},
+    "aETH":   {"name": "AIX-Ethereum", "emoji": "💎", "usd_price": 3500.0},
+    "aUSDT":  {"name": "AIX-Tether", "emoji": "💵", "usd_price": 1.0},
+    "aBNB":   {"name": "AIX-BNB", "emoji": "🟡", "usd_price": 600.0},
+    "aSOL":   {"name": "AIX-Solana", "emoji": "🟣", "usd_price": 150.0},
+    "aXRP":   {"name": "AIX-Ripple", "emoji": "💧", "usd_price": 0.5},
+    "aDOGE":  {"name": "AIX-Dogecoin", "emoji": "🐕", "usd_price": 0.15},
+    "aADA":   {"name": "AIX-Cardano", "emoji": "🔷", "usd_price": 0.4},
+    "aTON":   {"name": "AIX-Toncoin", "emoji": "💎", "usd_price": 7.0},
+    "aTRX":   {"name": "AIX-Tron", "emoji": "⚡", "usd_price": 0.12},
 }
 
-# Общая комиссия = FOUNDER + LP
-FOUNDER_FEE_PERCENT = 0.1   # идёт сразу на founder
-LP_FEE_PERCENT = 0.2        # остаётся в резервах для LP
-DEFAULT_FEE_PERCENT = FOUNDER_FEE_PERCENT + LP_FEE_PERCENT  # = 0.3
-
-# Кошелёк основателя. Можно переопределить через env.
-DEFAULT_FOUNDER_ADDRESS = "AIXTDAxX7jcySbFX61wTyhxtg8asGnnzcbmGr"
-
-MIN_LIQUIDITY = 10 * config.SATOSHI
-MIN_RESERVE_PERCENT = 5
-FAUCET_AMOUNT = 1000 * config.SATOSHI
-FAUCET_COOLDOWN_SECONDS = 0
+TOKEN_CATALOG = {k: {"name": v["name"], "emoji": v["emoji"], "decimals": 18} for k, v in A_COIN_CATALOG.items()}
 
 
-# =============================================================================
-# ФОРМУЛА AMM
-# =============================================================================
+# Интегрируем в существующий список токенов
+for _k, _v in A_COIN_CATALOG.items():
+    if _k not in TOKEN_CATALOG:
+        TOKEN_CATALOG[_k] = {"name": _v["name"], "emoji": _v["emoji"], "decimals": 18}
+
 
 def compute_swap_output(reserve_in: int, reserve_out: int,
                         amount_in: int, fee_percent: float) -> int:
-    """Формула Uniswap V2 (x*y=k)."""
+    """Формула Uniswap V2: x * y = k."""
     if amount_in <= 0 or reserve_in <= 0 or reserve_out <= 0:
         return 0
     amount_in_with_fee = amount_in * (1000 - int(fee_percent * 10)) // 1000
@@ -89,10 +84,11 @@ def compute_swap_output(reserve_in: int, reserve_out: int,
     return max(0, amount_out)
 
 
+
 def compute_lp_tokens(amount_a: int, amount_b: int,
                       reserve_a: int, reserve_b: int,
                       total_lp: int) -> int:
-    """Сколько LP выдать за добавление ликвидности."""
+    """Сколько LP-токенов выдадут за добавление ликвидности."""
     if total_lp == 0:
         return int((amount_a * amount_b) ** 0.5)
     lp_from_a = amount_a * total_lp // reserve_a
@@ -100,9 +96,19 @@ def compute_lp_tokens(amount_a: int, amount_b: int,
     return min(lp_from_a, lp_from_b)
 
 
+def make_pool_id(token_x: str, token_y: str) -> tuple:
+    a, b = sorted([token_x, token_y])
+    return f"{a}/{b}", a, b
+
+
+# Адрес основателя (Alice) — получает 0.1% с каждой сделки
+DEFAULT_FOUNDER_ADDRESS = "AIXTA5WAvDBAifiZuYfwfxM57Ajn8kGcG6xj2"
+
+
 # =============================================================================
-# ПУЛ
+# МЕНЕДЖЕР
 # =============================================================================
+
 
 @dataclass
 class SwapPool:
@@ -121,13 +127,11 @@ class SwapPool:
     initial_reserve_b: int = 0
 
     def price_a_in_b(self) -> float:
-        if self.reserve_a == 0:
-            return 0.0
+        if self.reserve_a == 0: return 0.0
         return self.reserve_b / self.reserve_a
 
     def price_b_in_a(self) -> float:
-        if self.reserve_b == 0:
-            return 0.0
+        if self.reserve_b == 0: return 0.0
         return self.reserve_a / self.reserve_b
 
     def min_allowed_reserve_a(self) -> int:
@@ -149,20 +153,6 @@ class SwapPool:
             data["initial_reserve_b"] = data.get("reserve_b", 0)
         return cls(**data)
 
-    def __repr__(self):
-        return (f"SwapPool({self.id}, "
-                f"A={self.reserve_a / config.SATOSHI:.2f}, "
-                f"B={self.reserve_b / config.SATOSHI:.2f})")
-
-
-def make_pool_id(token_x: str, token_y: str) -> tuple:
-    a, b = sorted([token_x.upper(), token_y.upper()])
-    return f"{a}/{b}", a, b
-
-
-# =============================================================================
-# МЕНЕДЖЕР
-# =============================================================================
 
 class SwapManager:
     """Менеджер пулов и балансов токенов. С revenue share founder."""
@@ -240,7 +230,7 @@ class SwapManager:
 
     def faucet(self, address: str, token: str) -> tuple:
         token = token.upper()
-        if token not in SIM_TOKENS:
+        if token not in TOKEN_CATALOG:
             return False, f"Неизвестный токен: {token}", 0
         last = self.faucet_last.get(address, 0)
         now = time.time()
@@ -257,7 +247,7 @@ class SwapManager:
     # =========================================================================
 
     def get_pool(self, pool_id: str) -> Optional[SwapPool]:
-        parts = pool_id.upper().split("/")
+        parts = pool_id.split("/")
         if len(parts) != 2:
             return None
         pid, _, _ = make_pool_id(parts[0].strip(), parts[1].strip())
@@ -269,11 +259,9 @@ class SwapManager:
     def create_pool(self, token_x: str, token_y: str,
                     amount_x: int, amount_y: int,
                     creator: str) -> tuple:
-        token_x = token_x.upper()
-        token_y = token_y.upper()
         if token_x == token_y:
             return False, "Нельзя создать пул одинаковых токенов", None
-        if token_x not in SIM_TOKENS or token_y not in SIM_TOKENS:
+        if token_x not in TOKEN_CATALOG or token_y not in TOKEN_CATALOG:
             return False, f"Неизвестный токен", None
         if amount_x <= 0 or amount_y <= 0:
             return False, "Суммы должны быть положительными", None
@@ -396,7 +384,7 @@ class SwapManager:
         if pool is None:
             return False, "Пул не найден", {}
 
-        from_token = from_token.upper()
+        from_token = from_token
         if from_token not in (pool.token_a, pool.token_b):
             return False, f"Токен {from_token} не в пуле {pool.id}", {}
         if amount_in <= 0:
@@ -456,7 +444,7 @@ class SwapManager:
         if amount_in <= 0:
             return False, "Сумма должна быть положительной", {}
 
-        from_token = from_token.upper()
+        from_token = from_token
         if from_token not in (pool.token_a, pool.token_b):
             return False, f"Токен {from_token} не в пуле {pool.id}", {}
 
