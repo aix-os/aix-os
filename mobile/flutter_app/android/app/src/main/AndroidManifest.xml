@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
-    <application
+        <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />`r`n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />`r`n`r`n    <application
         android:label="AIX OS"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
@@ -36,7 +36,7 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-    </application>
+</application>
 
     <queries>
         <intent>

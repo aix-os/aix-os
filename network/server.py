@@ -12,6 +12,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import Request,  FastAPI, HTTPException
+from fastapi import UploadFile, File, Form
+from fastapi.responses import FileResponse
+from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -59,8 +62,8 @@ from core.protocols.p2p import (
 
 from storage.db import ChainStorage
 from network.peer_manager import PeerManager
+from network.ws_manager import ConnectionManager
 from network.discovery import MdnsDiscovery
-from core.protocols.messenger import MessengerManager
 from core.protocols.messenger import MessengerManager
 from network.discovery import MdnsDiscovery
 from core.governance.dao import DAOManager
@@ -258,12 +261,36 @@ class PoCPayRequest(BaseModel):
 class MessageSendRequest(BaseModel):
     sender: str
     recipient: str
-    text: str
+    text: str = ""
+    reply_to: str = ""
+    forwarded_from: str = ""
+    media_id: str = ""
+    media_mime: str = ""
+    media_size: int = 0
 
-class MessageSendRequest(BaseModel):
-    sender: str
-    recipient: str
-    text: str
+class MessageReadRequest(BaseModel):
+    message_id: str
+    reader: str
+
+class MessageReactRequest(BaseModel):
+    message_id: str
+    emoji: str
+    by: str
+
+class MessageEditRequest(BaseModel):
+    message_id: str
+    new_text: str
+    by: str
+
+class MessageDeleteRequest(BaseModel):
+    message_id: str
+    by: str
+    for_all: bool = False
+
+class MessagePinRequest(BaseModel):
+    message_id: str
+
+
 
 class AIRememberRequest(BaseModel):
     text: str
@@ -401,7 +428,7 @@ def create_app(port: int, data_file: str, self_url: str,
     ai_memory_path = Path(data_file).parent / "ai_memory.json"
     ai_memory = AIMemoryManager(ai_memory_path)
     messenger = MessengerManager(Path(data_file).parent / "messenger.json")
-    messenger = MessengerManager(Path(data_file).parent / "messenger.json")
+    ws_manager = ConnectionManager()
     p2p_manager = P2PManager(p2p_file, blockchain=blockchain)
 
 
@@ -2341,8 +2368,17 @@ def create_app(port: int, data_file: str, self_url: str,
 
 
     @app.post("/messages/send")
-    def messages_send(req: MessageSendRequest):
-        msg = messenger.send(req.sender, req.recipient, req.text)
+    async def messages_send(req: MessageSendRequest):
+        msg = messenger.send(
+            req.sender, req.recipient, req.text,
+            reply_to=req.reply_to or "",
+            forwarded_from=req.forwarded_from or "",
+            media_id=req.media_id or "",
+            media_mime=req.media_mime or "",
+            media_size=req.media_size or 0,
+        )
+        for addr in (msg.sender, msg.recipient):
+            await ws_manager.send_to(addr, {"type": "message", "message": msg.to_dict()})
         return {"status": "ok", "message": msg.to_dict()}
 
     @app.get("/messages/dialogs/{address}")
@@ -2350,24 +2386,184 @@ def create_app(port: int, data_file: str, self_url: str,
         return {"dialogs": messenger.get_dialogs(address)}
 
     @app.get("/messages/chat/{address1}/{address2}")
-    def messages_chat(address1: str, address2: str):
-        msgs = messenger.get_chat(address1, address2)
+    def messages_chat(address1: str, address2: str, viewer: str = ""):
+        msgs = messenger.get_chat(address1, address2, for_viewer=viewer or None)
         return {"messages": [m.to_dict() for m in msgs]}
 
+    @app.websocket("/ws/chat")
+    async def ws_chat(websocket: WebSocket, address: str):
+        from crypto.address import is_valid_address
+        if not is_valid_address(address):
+            await websocket.close(code=4001)
+            return
+        await ws_manager.connect(websocket, address)
+        await ws_manager.broadcast(
+            {"type": "presence", "address": address, "online": True},
+            exclude={address},
+        )
+        try:
+            await websocket.send_json({
+                "type": "connected",
+                "address": address,
+                "online": ws_manager.online_list(),
+            })
+            while True:
+                data = await websocket.receive_json()
+                t = data.get("type")
+                if t == "ping":
+                    await websocket.send_json({"type": "pong"})
+                    ws_manager.cleanup_typing()
+                elif t == "typing":
+                    peer = data.get("peer", "")
+                    is_typing = bool(data.get("is_typing", False))
+                    if peer:
+                        ws_manager.set_typing(address, peer, is_typing)
+                        await ws_manager.send_to(peer, {
+                            "type": "typing", "from": address, "is_typing": is_typing,
+                        })
+                elif t == "read":
+                    mid = data.get("message_id", "")
+                    if mid:
+                        ok, msg = messenger.mark_read(mid, address)
+                        if ok and msg:
+                            for addr in (msg.sender, msg.recipient):
+                                if addr != address:
+                                    await ws_manager.send_to(addr, {
+                                        "type": "read", "message": msg.to_dict(),
+                                    })
+        except WebSocketDisconnect:
+            pass
+        except Exception as e:
+            print(f"WS [{address[:12]}...]: {e}")
+        finally:
+            ws_manager.disconnect(websocket, address)
+            await ws_manager.broadcast(
+                {"type": "presence", "address": address, "online": False},
+                exclude={address},
+            )
 
-    @app.post("/messages/send")
-    def messages_send(req: MessageSendRequest):
-        msg = messenger.send(req.sender, req.recipient, req.text)
+    @app.post("/messages/read")
+    async def messages_read(req: MessageReadRequest):
+        ok, msg = messenger.mark_read(req.message_id, req.reader)
+        if not ok:
+            raise HTTPException(404, "Сообщение не найдено")
+        for addr in (msg.sender, msg.recipient):
+            if addr != req.reader:
+                await ws_manager.send_to(addr, {"type": "read", "message": msg.to_dict()})
         return {"status": "ok", "message": msg.to_dict()}
 
-    @app.get("/messages/dialogs/{address}")
-    def messages_dialogs(address: str):
-        return {"dialogs": messenger.get_dialogs(address)}
+    @app.post("/messages/react")
+    async def messages_react(req: MessageReactRequest):
+        ok, msg = messenger.add_reaction(req.message_id, req.emoji, req.by)
+        if not ok:
+            raise HTTPException(404, "Сообщение не найдено")
+        for addr in (msg.sender, msg.recipient):
+            await ws_manager.send_to(addr, {"type": "reaction", "message": msg.to_dict()})
+        return {"status": "ok", "message": msg.to_dict()}
 
-    @app.get("/messages/chat/{address1}/{address2}")
-    def messages_chat(address1: str, address2: str):
-        msgs = messenger.get_chat(address1, address2)
-        return {"messages": [m.to_dict() for m in msgs]}
+    @app.post("/messages/unreact")
+    async def messages_unreact(req: MessageReactRequest):
+        ok, msg = messenger.remove_reaction(req.message_id, req.by)
+        if not ok:
+            raise HTTPException(404, "Реакция не найдена")
+        for addr in (msg.sender, msg.recipient):
+            await ws_manager.send_to(addr, {"type": "reaction", "message": msg.to_dict()})
+        return {"status": "ok", "message": msg.to_dict()}
+
+    @app.post("/messages/edit")
+    async def messages_edit(req: MessageEditRequest):
+        ok, msg = messenger.edit(req.message_id, req.new_text, req.by)
+        if not ok:
+            raise HTTPException(403, "Нельзя редактировать")
+        for addr in (msg.sender, msg.recipient):
+            await ws_manager.send_to(addr, {"type": "edit", "message": msg.to_dict()})
+        return {"status": "ok", "message": msg.to_dict()}
+
+    @app.post("/messages/delete")
+    async def messages_delete(req: MessageDeleteRequest):
+        if req.for_all:
+            ok, msg = messenger.delete_for_all(req.message_id, req.by)
+        else:
+            ok, msg = messenger.delete_for_me(req.message_id, req.by)
+        if not ok:
+            raise HTTPException(403, "Нельзя удалить")
+        if req.for_all:
+            for addr in (msg.sender, msg.recipient):
+                await ws_manager.send_to(addr, {"type": "delete", "message": msg.to_dict()})
+        else:
+            await ws_manager.send_to(req.by, {"type": "delete", "message": msg.to_dict()})
+        return {"status": "ok", "message": msg.to_dict()}
+
+    @app.post("/messages/pin")
+    async def messages_pin(req: MessagePinRequest):
+        ok, msg = messenger.pin(req.message_id)
+        if not ok:
+            raise HTTPException(404, "Сообщение не найдено")
+        for addr in (msg.sender, msg.recipient):
+            await ws_manager.send_to(addr, {"type": "pin", "message": msg.to_dict()})
+        return {"status": "ok", "message": msg.to_dict()}
+
+    @app.post("/messages/unpin")
+    async def messages_unpin(req: MessagePinRequest):
+        ok, msg = messenger.unpin(req.message_id)
+        if not ok:
+            raise HTTPException(404, "Сообщение не найдено")
+        for addr in (msg.sender, msg.recipient):
+            await ws_manager.send_to(addr, {"type": "pin", "message": msg.to_dict()})
+        return {"status": "ok", "message": msg.to_dict()}
+
+    # --- МЕДИА (фото) ---
+    import uuid as _uuid
+    from pathlib import Path as _Path
+
+    MEDIA_DIR = _Path(data_file).parent / "media"
+    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    MAX_MEDIA_BYTES = 8 * 1024 * 1024  # 8 MB
+
+    @app.post("/media/upload")
+    async def media_upload(
+        file: UploadFile = File(...),
+        uploader: str = Form(...),
+    ):
+        if file.content_type not in ALLOWED_MIME:
+            raise HTTPException(400, f"Недопустимый тип: {file.content_type}")
+        content = await file.read()
+        if len(content) == 0:
+            raise HTTPException(400, "Пустой файл")
+        if len(content) > MAX_MEDIA_BYTES:
+            raise HTTPException(400, f"Файл больше {MAX_MEDIA_BYTES // (1024*1024)} MB")
+        ext = (file.filename or "").rsplit(".", 1)
+        ext = ext[-1].lower() if len(ext) == 2 else "bin"
+        # sanitize
+        ext = "".join(c for c in ext if c.isalnum())[:5] or "bin"
+        fname = f"{_uuid.uuid4().hex}.{ext}"
+        path = MEDIA_DIR / fname
+        path.write_bytes(content)
+        return {
+            "status": "ok",
+            "media_id": fname,
+            "mime": file.content_type,
+            "size": len(content),
+            "uploader": uploader,
+        }
+
+    @app.get("/media/{filename}")
+    def media_get(filename: str):
+        # Защита от path traversal
+        if "/" in filename or "\\" in filename or filename.startswith("."):
+            raise HTTPException(400, "bad filename")
+        path = MEDIA_DIR / filename
+        if not path.exists() or not path.is_file():
+            raise HTTPException(404, "Файл не найден")
+        return FileResponse(path)
+
+    @app.get("/messages/online")
+    def messages_online():
+        return {"online": ws_manager.online_list()}
+
+
+
 
     return app
 
