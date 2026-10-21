@@ -433,21 +433,25 @@ footer a:hover { text-decoration: underline; }
 <div class="container">
     <div class="stats">
         <div class="stat-box">
-            <div class="num">12</div>
-            <div class="lbl">Killer-фич</div>
+            <div class="num" id="stat-height">—</div>
+            <div class="lbl">Блоков в сети</div>
         </div>
         <div class="stat-box">
-            <div class="num">21M</div>
-            <div class="lbl">Максимум AIX</div>
+            <div class="num" id="stat-txs">—</div>
+            <div class="lbl">Транзакций</div>
         </div>
         <div class="stat-box">
-            <div class="num">229</div>
-            <div class="lbl">Файлов кода</div>
+            <div class="num" id="stat-supply">—</div>
+            <div class="lbl">Всего AIX</div>
         </div>
         <div class="stat-box">
-            <div class="num">0%</div>
-            <div class="lbl">Pre-mine</div>
+            <div class="num" id="stat-ids">—</div>
+            <div class="lbl">AIX-ID</div>
         </div>
+    </div>
+    <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--muted);">
+        <span id="net-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#666;margin-right:6px;"></span>
+        <span id="net-label">подключение к ноде…</span>
     </div>
 </div>
 
@@ -712,5 +716,60 @@ footer a:hover { text-decoration: underline; }
     </div>
 </footer>
 
+
+<script>
+(function() {
+    const NODES = ['https://aix-os-nm8jc.faable.link', 'http://localhost:8010'];
+    const $ = (id) => document.getElementById(id);
+
+    function fmt(n, d) {
+        if (typeof n !== 'number' || !isFinite(n)) return '—';
+        return n.toLocaleString('ru-RU', {minimumFractionDigits: d || 0, maximumFractionDigits: d || 0});
+    }
+
+    function setNet(online, label) {
+        const dot = $('net-dot');
+        const lbl = $('net-label');
+        if (!dot || !lbl) return;
+        dot.style.background = online ? '#00FF88' : '#FF3366';
+        dot.style.boxShadow = online ? '0 0 8px #00FF88' : '0 0 8px #FF3366';
+        lbl.textContent = label;
+    }
+
+    async function fetchStatus() {
+        for (const url of NODES) {
+            try {
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), 6000);
+                const r = await fetch(url + '/status', { signal: ctrl.signal });
+                clearTimeout(t);
+                if (r.ok) return { url, data: await r.json() };
+            } catch (e) { /* next */ }
+        }
+        return null;
+    }
+
+    async function update() {
+        const res = await fetchStatus();
+        if (!res) {
+            setNet(false, 'нода недоступна');
+            return;
+        }
+        const s = res.data;
+        const shortUrl = res.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        setNet(true, 'нода: ' + shortUrl);
+
+        if ($('stat-height')) $('stat-height').textContent = fmt(s.height);
+        if ($('stat-txs')) $('stat-txs').textContent = fmt(s.total_transactions);
+        if ($('stat-supply')) $('stat-supply').textContent = fmt(Math.floor(s.total_supply_aix || 0));
+        if ($('stat-ids')) $('stat-ids').textContent = fmt(s.ids_count);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        update();
+        setInterval(update, 10000);
+    });
+})();
+</script>
 </body>
 </html>
