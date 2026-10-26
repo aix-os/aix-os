@@ -38,6 +38,17 @@ class Peer:
         self.is_alive = False
         return False
 
+    def get_peers(self, timeout: float = 5.0) -> Optional[list]:
+        """Скачать список пиров у соседа."""
+        try:
+            r = requests.get(f"{self.url}/peers", timeout=timeout)
+            if r.status_code == 200:
+                data = r.json()
+                return [p["url"] for p in data.get("peers", [])]
+        except requests.RequestException:
+            pass
+        return None
+
     def get_chain(self, timeout: float = 10.0) -> Optional[dict]:
         try:
             r = requests.get(f"{self.url}/sync/chain", timeout=timeout)

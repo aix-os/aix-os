@@ -91,7 +91,7 @@ def _stub_tools(signer=None, balance_available: float = 100.0) -> BrainTools:
         if path.endswith("/swap/quote"):
             return {"ok": True, "data": {
                 "from_token": body.get("from_token"),
-                "to_token": "AIX-SIM",
+                "to_token": "AIX",
                 "amount_in_aix": body.get("amount_in_aix"),
                 "amount_out_aix": 99.0,
                 "execution_price": 0.99,

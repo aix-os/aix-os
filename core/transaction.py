@@ -126,7 +126,7 @@ class Transaction:
 
         # Минимальная комиссия: 0.1%
         required_fee = calculate_fee(self.amount)
-        if self.fee < required_fee:
+        if self.sender not in SYSTEM_SENDERS and self.recipient not in SYSTEM_RECIPIENTS and self.fee < required_fee:
             return False, (f"Комиссия слишком мала: нужно {required_fee} "
                           f"({FEE_PERCENT}% от {self.amount}), указано {self.fee}")
 

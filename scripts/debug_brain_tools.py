@@ -63,7 +63,7 @@ def main() -> int:
         if pool_list:
             pid = pool_list[0]["id"]
             show(f"7. swap_quote pool={pid}",
-                 tools.swap_quote(pid, "USDT-SIM", 50.0))
+                 tools.swap_quote(pid, "USDT", 50.0))
         else:
             print("\n  Пул не найден — swap_quote пропущен")
 

@@ -153,7 +153,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         ),
         "parameters": {"type": "object", "properties": {
             "pool_id": {"type": "string"},
-            "from_token": {"type": "string", "description": "USDT-SIM|AIX-SIM|BTC-SIM|ETH-SIM|SOL-SIM"},
+            "from_token": {"type": "string", "description": "USDT|AIX|BTC|ETH|SOL"},
             "amount_in_aix": {"type": "number"},
         }, "required": ["pool_id", "from_token", "amount_in_aix"]},
     }},

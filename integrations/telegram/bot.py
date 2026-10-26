@@ -221,7 +221,7 @@ async def cmd_balance(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if bal.get("medals_count"):
         text += f"🏅 Медали: `{bal['medals_count']}` (репутация: `{bal['reputation']}`)\n"
     if bal.get("sim_balances"):
-        text += "\n*SIM-токены:*\n"
+        text += "\n*COIN:*\n"
         for tok, amount in bal["sim_balances"].items():
             if amount > 0:
                 text += f"• {tok}: `{amount / 1e18:.2f}`\n"

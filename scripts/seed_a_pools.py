@@ -3,7 +3,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Импортируем обновленный менеджер
-from core.protocols.swap import SwapManager, A_COIN_CATALOG
+from core.protocols.swap import SwapManager, COIN_CATALOG
 
 PORT = 8010
 STORAGE = Path(f"data/swap_{PORT}.json")
@@ -17,19 +17,19 @@ mgr.add_balance(CREATOR, "AIX", TEST_AIX)
 print(f"💰 Выдано {TEST_AIX/10**18:.0f} AIX для создания пулов")
 
 # Создаем пулы с курсами от $100 за AIX
-for token, info in A_COIN_CATALOG.items():
+for token, info in COIN_CATALOG.items():
     if token == "AIX":
         continue # AIX не создаем в паре с самим собой
         
     usd = info["usd_price"]
-    # Цена AIX = $100. Значит 1 aCOIN = (usd / 100) AIX.
+    # Цена AIX = $100. Значит 1 COIN = (usd / 100) AIX.
     aix_amount = usd / 100.0 
     
-    # Создаем пул: 1000 aCOIN и соответствующее количество AIX
+    # Создаем пул: 1000 COIN и соответствующее количество AIX
     a_coin_amount = 1000 * 10**18
     aix_pool_amount = int(1000 * aix_amount * 10**18)
     
-    # Выдаем тебе 1000 aCOIN для теста
+    # Выдаем тебе 1000 COIN для теста
     mgr.add_balance(CREATOR, token, a_coin_amount)
     
     ok, msg, pool = mgr.create_pool(

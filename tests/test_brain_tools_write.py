@@ -53,7 +53,7 @@ class PostRecorder(BrainTools):
         if path.endswith("/swap/quote"):
             return {"ok": True, "data": {
                 "from_token": body.get("from_token"),
-                "to_token": "AIX-SIM",
+                "to_token": "AIX",
                 "amount_in_aix": body.get("amount_in_aix"),
                 "amount_out_aix": 99.0,
                 "execution_price": 0.99,
@@ -149,7 +149,7 @@ def test_timelock_create_requires_until():
 def test_swap_execute_quotes_then_posts():
     signer = CountingSigner(confirm=True)
     t = PostRecorder(signer=signer)
-    r = t.swap_execute("POOL1", "USDT-SIM", 100.0)
+    r = t.swap_execute("POOL1", "USDT", 100.0)
     assert r["ok"] is True
     # Должны быть 2 POST: /swap/quote и /swap/execute
     paths = [p for p, _ in t.posts]
@@ -161,7 +161,7 @@ def test_swap_execute_quotes_then_posts():
 def test_swap_execute_cancel_blocks_execute():
     signer = CountingSigner(confirm=False)
     t = PostRecorder(signer=signer)
-    r = t.swap_execute("POOL1", "USDT-SIM", 100.0)
+    r = t.swap_execute("POOL1", "USDT", 100.0)
     assert r["ok"] is False
     assert r["cancelled"] is True
     # quote случился (нужен для preview), но execute — нет
@@ -172,7 +172,7 @@ def test_swap_execute_cancel_blocks_execute():
 
 def test_swap_execute_requires_signer():
     t = PostRecorder(signer=NullSigner())
-    r = t.swap_execute("POOL1", "USDT-SIM", 100.0)
+    r = t.swap_execute("POOL1", "USDT", 100.0)
     assert r["ok"] is False
     assert not any("/swap/execute" in p for p, _ in t.posts)
 
@@ -180,7 +180,7 @@ def test_swap_execute_requires_signer():
 def test_swap_execute_rejects_zero_amount():
     signer = CountingSigner()
     t = PostRecorder(signer=signer)
-    assert t.swap_execute("POOL1", "USDT-SIM", 0)["ok"] is False
+    assert t.swap_execute("POOL1", "USDT", 0)["ok"] is False
     assert signer.calls == []
 
 
@@ -267,7 +267,7 @@ def test_no_private_key_in_any_write_result():
     results = [
         t.gift_create(1.0),
         t.timelock_create(1.0, "2027-01-01"),
-        t.swap_execute("POOL1", "USDT-SIM", 10.0),
+        t.swap_execute("POOL1", "USDT", 10.0),
         t.sbt_award("EARLY_BIRD", "bob"),
         t.id_register("test"),
     ]

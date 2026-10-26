@@ -80,8 +80,8 @@ Q: "подари маме 5 AIX на 30 дней"
 Q: "заморозь 10 AIX до конца года"
 Ты: [timelock_create(amount_aix=10.0, until="2026-12-31")]
 
-Q: "обменяй 100 USDT-SIM на AIX-SIM"
-Ты: [сначала swap_pools() → находишь pool_id → swap_execute(pool_id=..., from_token="USDT-SIM", amount_in_aix=100)]
+Q: "обменяй 100 USDT на AIX"
+Ты: [сначала swap_pools() → находишь pool_id → swap_execute(pool_id=..., from_token="USDT", amount_in_aix=100)]
 
 Q: "выдай bob медаль EARLY_BIRD"
 Ты: [sbt_award(medal_id="EARLY_BIRD", owner="bob")]

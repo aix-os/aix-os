@@ -81,6 +81,8 @@ class Blockchain:
         
         tx_ids = [tx.tx_id() for tx in block.transactions]
         self.mempool.remove_many(tx_ids)
+        if hasattr(self, '_rebuild_cache'):
+            self._rebuild_cache()
         self._adjust_difficulty()
         
         # Обновляем кэш валидности

@@ -73,13 +73,28 @@ class PeerManager:
             self._save()
         return removed
 
+    def exchange_peers(self):
+        """Спрашиваем у текущих пиров, каких других пиров они знают, и добавляем их."""
+        new_peers = set()
+        for peer in list(self.peers.values()):
+            if peer.is_alive:
+                their_peers = peer.get_peers()
+                if their_peers:
+                    for u in their_peers:
+                        u = u.rstrip("/")
+                        if u != self.self_url and u not in self.peers:
+                            new_peers.add(u)
+        for u in new_peers:
+            print(f"[PEX] 🔗 Новый пир от соседа: {u}")
+            self.add(u, ping=False)
+
     def ping_all(self) -> dict:
-        alive = sum(1 for p in self.peers.values() if p.ping())
+        alive = sum(1 for p in list(self.peers.values()) if p.ping())
         return {"alive": alive, "dead": len(self.peers) - alive, "total": len(self.peers)}
 
     def broadcast_block(self, block_dict: dict, from_peer: str = "") -> int:
         count = 0
-        for peer in self.peers.values():
+        for peer in list(self.peers.values()):
             if from_peer and peer.url.rstrip("/") == from_peer.rstrip("/"):
                 continue
             if peer.send_block(block_dict, from_peer=self.self_url):
@@ -87,12 +102,12 @@ class PeerManager:
         return count
 
     def broadcast_transaction(self, tx_dict: dict) -> int:
-        return sum(1 for p in self.peers.values() if p.send_transaction(tx_dict))
+        return sum(1 for p in list(self.peers.values()) if p.send_transaction(tx_dict))
 
     def broadcast_state_event(self, event: dict, from_peer: str = "") -> int:
         """Разослать событие состояния (gift/timelock/medal) всем пирам."""
         count = 0
-        for peer in self.peers.values():
+        for peer in list(self.peers.values()):
             if from_peer and peer.url.rstrip("/") == from_peer.rstrip("/"):
                 continue
             if peer.send_state_event(event, from_peer=self.self_url):
@@ -100,7 +115,7 @@ class PeerManager:
         return count
 
     def best_peer(self) -> Optional[Peer]:
-        alive = [p for p in self.peers.values() if p.is_alive]
+        alive = [p for p in list(self.peers.values()) if p.is_alive]
         if not alive:
             return None
         return max(alive, key=lambda p: (p.total_work or 0, p.height))
@@ -110,7 +125,7 @@ class PeerManager:
             {"url": p.url, "is_alive": p.is_alive, "height": p.height,
              "difficulty": p.difficulty, "version": p.version,
              "total_work": p.total_work, "last_seen": p.last_seen}
-            for p in self.peers.values()
+            for p in list(self.peers.values())
         ]
 
     def __len__(self) -> int:
