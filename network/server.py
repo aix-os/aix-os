@@ -2161,14 +2161,16 @@ def create_app(port: int, data_file: str, self_url: str,
     def token_register(req: TokenRegisterRequest):
         creator_addr = resolve_who(req.creator)
 
-        # 0. Синхронизируем AIX из блокчейна в Swap (чтобы был баланс для пула)
-        real_aix = blockchain.get_balance(creator_addr)
-        swap_aix = swap_manager.get_balance(creator_addr, "AIX")
-        if real_aix > swap_aix:
-            swap_manager.add_balance(creator_addr, "AIX", real_aix - swap_aix)
+        # 0. Синхронизируем AIX из блокчейна в Swap (блокчейн = 8 dec, swap = 18 dec)
+        SWAP_DECIMALS = 10 ** 18
+        real_aix = blockchain.get_balance(creator_addr)  # 8 dec
+        real_aix_swap = int(real_aix * SWAP_DECIMALS / config.SATOSHI)  # 18 dec
+        swap_aix = swap_manager.get_balance(creator_addr, "AIX")  # 18 dec
+        if real_aix_swap > swap_aix:
+            swap_manager.add_balance(creator_addr, "AIX", real_aix_swap - swap_aix)
 
-        # 1. Проверка реальной ликвидности AIX
-        available_aix = swap_manager.get_balance(creator_addr, "AIX") / config.SATOSHI
+        # 1. Проверка реальной ликвидности AIX (в человеческих единицах)
+        available_aix = swap_manager.get_balance(creator_addr, "AIX") / SWAP_DECIMALS
         if available_aix < req.initial_pool_aix:
             raise HTTPException(400,
                 f"Недостаточно AIX в Swap: нужно {req.initial_pool_aix}, "
@@ -2204,10 +2206,10 @@ def create_app(port: int, data_file: str, self_url: str,
             raise HTTPException(400,
                 f"Недостаточно AIX в Swap: нужно {pool_aix:.4f}, есть {available_aix:.4f}")
 
-        # 2. Регистрация токена
-        total_supply_raw = int(req.total_supply * config.SATOSHI)
-        initial_pool_aix_raw = int(pool_aix * config.SATOSHI)
-        initial_pool_token_raw = int(pool_tok * config.SATOSHI)
+        # 2. Регистрация токена (swap = 18 dec)
+        total_supply_raw = int(req.total_supply * SWAP_DECIMALS)
+        initial_pool_aix_raw = int(pool_aix * SWAP_DECIMALS)
+        initial_pool_token_raw = int(pool_tok * SWAP_DECIMALS)
 
         ok, msg = token_registry.register(
             creator=creator_addr,

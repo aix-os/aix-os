@@ -1294,17 +1294,19 @@ function recalcPool() {
     if (!usd || usd <= 0) { hint.textContent = ""; return; }
 
     const aixUsd = AIX_USD_PRICE || 100;
-    const rate = usd / aixUsd;  // сколько TOKEN за 1 AIX
+    const rate = aixUsd / usd;  // сколько TOKEN даёт 1 AIX
 
     if (aix > 0 && !tok) {
         const auto = aix * rate;
         $("token-pool-token").value = auto.toPrecision(6);
-        hint.textContent = "Курс: 1 AIX = " + rate.toPrecision(6) + " " + sym +
+        hint.textContent = "1 AIX = " + rate.toPrecision(6) + " " + sym +
                           " — TOKEN рассчитан автоматически";
+        hint.style.color = "var(--neon)";
     } else if (tok > 0 && !aix) {
         const auto = tok / rate;
         $("token-pool-aix").value = auto.toPrecision(6);
-        hint.textContent = "Курс: 1 " + sym + " = " + (1/rate).toPrecision(6) + " AIX — AIX рассчитан автоматически";
+        hint.textContent = "1 " + sym + " = " + (1/rate).toPrecision(6) + " AIX — AIX рассчитан автоматически";
+        hint.style.color = "var(--neon)";
     } else if (aix > 0 && tok > 0) {
         const expected = aix * rate;
         const diff = Math.abs(tok - expected) / expected;
@@ -1312,7 +1314,7 @@ function recalcPool() {
             hint.textContent = "⚠ Пропорция не по курсу. Ожидается " + expected.toPrecision(6) + " " + sym + " — будет исправлено при создании.";
             hint.style.color = "var(--gold)";
         } else {
-            hint.textContent = "✓ Пропорция в порядке";
+            hint.textContent = "✓ Пропорция в порядке (1 AIX = " + rate.toPrecision(6) + " " + sym + ")";
             hint.style.color = "var(--neon)";
         }
     }
