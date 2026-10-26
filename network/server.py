@@ -89,6 +89,10 @@ class MineRequest(BaseModel):
 class CreateWalletRequest(BaseModel):
     name: str
 
+class ImportWalletRequest(BaseModel):
+    name: str
+    private_key: str
+
 class AddPeerRequest(BaseModel):
     url: str
 
@@ -457,6 +461,12 @@ def create_app(port: int, data_file: str, self_url: str,
         addr = id_manager.resolve(who)
         if addr:
             return addr
+        # fallback: имя кошелька -> адрес
+        try:
+            if Wallet.exists(who):
+                return Wallet.load(who).address
+        except Exception:
+            pass
         return who
 
     async def _pull_state_from_peers(port: int) -> dict:
@@ -811,6 +821,34 @@ def create_app(port: int, data_file: str, self_url: str,
             raise HTTPException(400, f"Кошелёк '{req.name}' уже существует")
         w = Wallet.create(req.name); w.save()
         return {"status": "created", "name": w.name, "address": w.address,
+                "public_key": w.public_key}
+
+    @app.post("/wallet/import")
+    def import_wallet(req: ImportWalletRequest):
+        if Wallet.exists(req.name):
+            raise HTTPException(400, f"Кошелёк '{req.name}' уже существует")
+        try:
+            clean = req.private_key.strip().lower().replace("0x", "")
+            priv_bytes = bytes.fromhex(clean)
+            if len(priv_bytes) != 32:
+                raise ValueError(f"Приватный ключ должен быть 32 байта (64 hex), получено {len(priv_bytes)}")
+            from crypto.keys import private_key_from_bytes, get_public_key_bytes
+            from crypto.address import private_key_to_address
+            sk = private_key_from_bytes(priv_bytes)
+            address = private_key_to_address(sk)
+            pub = get_public_key_bytes(sk)
+        except Exception as e:
+            raise HTTPException(400, f"Невалидный приватный ключ: {e}")
+
+        w = Wallet(
+            name=req.name,
+            address=address,
+            public_key=pub.hex(),
+            private_key=clean,
+            created_at=time.time(),
+        )
+        w.save()
+        return {"status": "imported", "name": w.name, "address": w.address,
                 "public_key": w.public_key}
 
     # =========================================================================
@@ -1500,11 +1538,11 @@ def create_app(port: int, data_file: str, self_url: str,
             "status": "created",
             "pool": {
                 "id": pool.id, "token_a": pool.token_a, "token_b": pool.token_b,
-                "reserve_a": pool.reserve_a / config.SATOSHI,
-                "reserve_b": pool.reserve_b / config.SATOSHI,
+                "reserve_a": pool.reserve_a / 10**18,
+                "reserve_b": pool.reserve_b / 10**18,
                 "price_a_in_b": pool.price_a_in_b(),
                 "price_b_in_a": pool.price_b_in_a(),
-                "total_lp": pool.total_lp / config.SATOSHI,
+                "total_lp": pool.total_lp / 10**18,
                 "lp_holders": len(pool.lp_holders),
                 "fee_percent": pool.fee_percent,
                 "created_at": pool.created_at,
@@ -1517,11 +1555,11 @@ def create_app(port: int, data_file: str, self_url: str,
         pools = swap_manager.list_pools()
         return {"count": len(pools), "pools": [
             {"id": p.id, "token_a": p.token_a, "token_b": p.token_b,
-             "reserve_a": p.reserve_a / config.SATOSHI,
-             "reserve_b": p.reserve_b / config.SATOSHI,
+             "reserve_a": p.reserve_a / 10**18,
+             "reserve_b": p.reserve_b / 10**18,
              "price_a_in_b": p.price_a_in_b(),
              "price_b_in_a": p.price_b_in_a(),
-             "total_lp": p.total_lp / config.SATOSHI,
+             "total_lp": p.total_lp / 10**18,
              "lp_holders": len(p.lp_holders),
              "fee_percent": p.fee_percent,
              "created_at": p.created_at}
@@ -1535,11 +1573,11 @@ def create_app(port: int, data_file: str, self_url: str,
             raise HTTPException(404, "Пул не найден")
         return {
             "id": pool.id, "token_a": pool.token_a, "token_b": pool.token_b,
-            "reserve_a": pool.reserve_a / config.SATOSHI,
-            "reserve_b": pool.reserve_b / config.SATOSHI,
+            "reserve_a": pool.reserve_a / 10**18,
+            "reserve_b": pool.reserve_b / 10**18,
             "price_a_in_b": pool.price_a_in_b(),
             "price_b_in_a": pool.price_b_in_a(),
-            "total_lp": pool.total_lp / config.SATOSHI,
+            "total_lp": pool.total_lp / 10**18,
             "lp_holders_count": len(pool.lp_holders),
             "fee_percent": pool.fee_percent,
             "created_at": pool.created_at,
@@ -1588,7 +1626,7 @@ def create_app(port: int, data_file: str, self_url: str,
 
     @app.post("/swap/quote")
     def swap_quote(req: SwapQuoteRequest):
-        amount_in = int(req.amount_in_aix * config.SATOSHI)
+        amount_in = int(req.amount_in_aix * 10**18)
         ok, msg, info = swap_manager.get_quote(req.pool_id, req.from_token, amount_in)
         if not ok:
             raise HTTPException(400, msg)
@@ -1597,9 +1635,18 @@ def create_app(port: int, data_file: str, self_url: str,
     @app.post("/swap/execute")
     def swap_execute(req: SwapExecuteRequest):
         addr = resolve_who(req.address)
-        amount_in = int(req.amount_in_aix * config.SATOSHI)
+        amount_in = int(req.amount_in_aix * 10**18)
+
+        # Автосинк AIX: blockchain (8 dec) -> swap (18 dec)
+        SWAP_DECIMALS = 10 ** 18
+        real_aix = blockchain.get_balance(addr)
+        real_aix_swap = int(real_aix * SWAP_DECIMALS / config.SATOSHI)
+        swap_aix = swap_manager.get_balance(addr, "AIX")
+        if real_aix_swap > swap_aix:
+            swap_manager.add_balance(addr, "AIX", real_aix_swap - swap_aix)
+
         ok, msg, info = swap_manager.swap(
-            req.pool_id, addr, req.from_token, amount_in, req.private_key
+            req.pool_id, addr, req.from_token, amount_in
         )
         if not ok:
             raise HTTPException(400, msg)
