@@ -236,13 +236,7 @@ class SwapManager:
         parts = pool_id.upper().split("/")
         if len(parts) != 2:
             return None
-        normalized = []
-        for p in parts:
-            p = p.strip()
-            if not p.endswith("-SIM"):
-                p = f"{p}-SIM" if p in ("AIX", "USDT", "BTC", "ETH", "SOL") else p
-            normalized.append(p)
-        pid, _, _ = make_pool_id(normalized[0], normalized[1])
+        pid, _, _ = make_pool_id(parts[0].strip(), parts[1].strip())
         return self.pools.get(pid)
 
     def list_pools(self) -> list:

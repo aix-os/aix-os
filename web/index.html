@@ -218,6 +218,26 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
 
     <div class="panel" id="panel-wallets">
         <h2>Кошельки</h2>
+        <div class="card">
+            <h3>Создать новый кошелёк</h3>
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Имя кошелька</label>
+            <input id="new-wallet-name" type="text" placeholder="my-wallet" autocomplete="off">
+            <div style="display:flex; gap:8px;">
+                <button onclick="createWalletUI()" id="create-wallet-btn" style="flex:1;">Создать</button>
+                <button class="secondary" onclick="toggleImportForm()" id="toggle-import-btn" style="flex:1;">Импорт</button>
+            </div>
+            <div class="result" id="create-wallet-result"></div>
+        </div>
+        <div class="card" id="import-wallet-card" style="display:none;">
+            <h3>Импорт по приватному ключу</h3>
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Имя кошелька</label>
+            <input id="import-wallet-name" type="text" placeholder="imported" autocomplete="off">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Приватный ключ (64 hex, можно с 0x)</label>
+            <input id="import-wallet-pk" type="password" placeholder="abcdef...0123" autocomplete="off">
+            <button onclick="importWalletUI()" id="import-wallet-btn" style="width:100%;">Импортировать</button>
+            <div class="result" id="import-wallet-result"></div>
+        </div>
+        <h2 style="margin-top:25px;">Список кошельков</h2>
         <div class="card" id="wallets-list"><div class="empty">Загрузка...</div></div>
     </div>
 
@@ -1380,6 +1400,65 @@ function refreshTokenWallets() {
     const opts = currentWallets.map(w => `<option value="${w.name}">${w.name}</option>`).join("");
     const el = $("token-wallet");
     if (el) el.innerHTML = opts;
+}
+
+function toggleImportForm() {
+    const c = $("import-wallet-card");
+    c.style.display = (c.style.display === "none" || !c.style.display) ? "block" : "none";
+}
+
+async function createWalletUI() {
+    const res = $("create-wallet-result");
+    const name = $("new-wallet-name").value.trim();
+    if (!name) {
+        res.className = "result error show";
+        res.textContent = "\u274C Введи имя кошелька";
+        return;
+    }
+    const btn = $("create-wallet-btn");
+    btn.disabled = true;
+    res.className = "result show";
+    res.textContent = "\u23F3 Создаём...";
+    try {
+        const d = await apiPost("/wallet/create", { name });
+        res.className = "result show";
+        res.textContent = "\u2705 Кошелёк " + d.name + " создан\nАдрес: " + d.address;
+        $("new-wallet-name").value = "";
+        await refreshWallets();
+    } catch (e) {
+        res.className = "result error show";
+        res.textContent = "\u274C " + e.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function importWalletUI() {
+    const res = $("import-wallet-result");
+    const name = $("import-wallet-name").value.trim();
+    const pk = $("import-wallet-pk").value.trim();
+    if (!name || !pk) {
+        res.className = "result error show";
+        res.textContent = "\u274C Заполни имя и приватный ключ";
+        return;
+    }
+    const btn = $("import-wallet-btn");
+    btn.disabled = true;
+    res.className = "result show";
+    res.textContent = "\u23F3 Импортируем...";
+    try {
+        const d = await apiPost("/wallet/import", { name, private_key: pk });
+        res.className = "result show";
+        res.textContent = "\u2705 Кошелёк " + d.name + " импортирован\nАдрес: " + d.address;
+        $("import-wallet-name").value = "";
+        $("import-wallet-pk").value = "";
+        await refreshWallets();
+    } catch (e) {
+        res.className = "result error show";
+        res.textContent = "\u274C " + e.message;
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 async function refreshAll() {
