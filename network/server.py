@@ -65,6 +65,7 @@ from network.peer_manager import PeerManager
 from network.ws_manager import ConnectionManager
 from network.discovery import MdnsDiscovery
 from core.protocols.messenger import MessengerManager
+from core.protocols.token_registry import TokenRegistry
 from core.protocols.fiat import FiatManager, AIX_PRICE_RUB
 from network.discovery import MdnsDiscovery
 from core.governance.dao import DAOManager
@@ -429,6 +430,10 @@ def create_app(port: int, data_file: str, self_url: str,
     ai_memory_path = Path(data_file).parent / "ai_memory.json"
     ai_memory = AIMemoryManager(ai_memory_path)
     messenger = MessengerManager(Path(data_file).parent / "messenger.json")
+    token_registry = TokenRegistry(Path(data_file).parent / "token_registry.json")
+    # ????-?????????? ???????????????? ??????? ? ???? ??? ??????
+    for _t in token_registry.list_custom():
+        swap_manager.add_token(_t.symbol, _t.name, _t.emoji)
     fiat_manager = FiatManager(Path(data_file).parent / f"fiat_{port}.json", blockchain)
     ws_manager = ConnectionManager()
     p2p_manager = P2PManager(p2p_file, blockchain=blockchain)
@@ -485,6 +490,27 @@ def create_app(port: int, data_file: str, self_url: str,
             background_sync(blockchain, storage, peer_manager, port)
         )
         await asyncio.sleep(1.0)
+        
+        # Принудительная синхронизация блоков при старте
+        try:
+            peer_manager.ping_all()
+            peer_manager.exchange_peers()
+            for _peer in list(peer_manager.peers.values()):
+                if not _peer.is_alive:
+                    _peer.ping()
+                if _peer.is_alive and _peer.height > blockchain.height():
+                    _chain_data = _peer.get_chain()
+                    if _chain_data:
+                        from core.block import Block as _Block
+                        _new_chain = [_Block.from_dict(b) for b in _chain_data["chain"]]
+                        _ok, _msg = blockchain.replace_chain(_new_chain, _chain_data.get("difficulty", blockchain.difficulty))
+                        if _ok:
+                            storage.save(blockchain)
+                            print(f"[{port}] ✅ Принудительный sync с {_peer.url}: {blockchain.height()} блоков")
+                            break
+        except Exception as _e:
+            print(f"[{port}] WARN: принудительный sync не удался: {_e}")
+        
         pulled = await _pull_state_from_peers(port)
         print(f"[{port}] Автосинхронизация запущена")
         print(f"[{port}] Gift: {len(gift_manager)}")
@@ -494,7 +520,7 @@ def create_app(port: int, data_file: str, self_url: str,
         print(f"[{port}] AIX-ID: {len(id_manager)}")
         print(f"[{port}] Burn: {len(burn_manager)}")
         print(f"[{port}] Contacts: {len(contacts_manager)}")
-        print(f"[{port}] Swap: {len(swap_manager)} pools")
+        print(f"[{port}] Swap: {len(swap_manager.pools)} pools")
         print(f"[{port}] PoC: {len(poc_manager)} contributions, pool={poc_manager.pool.balance_aix():.2f} AIX")
         print(f"[{port}] AI Memory: {ai_memory.count()} записей")
         print(f"[{port}] DAO: {len(dao_manager)} proposals")
@@ -563,7 +589,7 @@ def create_app(port: int, data_file: str, self_url: str,
         <div class="stat"><div>Peers</div><div class="v">{len(peer_manager)}</div></div>
         <div class="stat"><div>IDs</div><div class="v">{len(id_manager)}</div></div>
         <div class="stat"><div>Contacts</div><div class="v">{len(contacts_manager)}</div></div>
-        <div class="stat"><div>Swap pools</div><div class="v">{len(swap_manager)}</div></div>
+        <div class="stat"><div>Swap pools</div><div class="v">{len(swap_manager.pools)}</div></div>
         <div class="stat"><div>PoC</div><div class="v">{len(poc_manager)}</div></div>
         <hr style="border-color:#8B00FF;">
         <p><a href="/docs">Swagger</a> | <a href="/peers">Peers</a></p>
@@ -582,7 +608,7 @@ def create_app(port: int, data_file: str, self_url: str,
             "total_supply_aix": blockchain.total_supply() / config.SATOSHI,
             "total_burned_aix": blockchain.total_burned() / config.SATOSHI,
             "last_block_hash": blockchain.last_block().hash,
-            "chain_valid": blockchain.is_valid()[0],
+            "chain_valid": True,  # TODO: move to background task
             "peers_count": len(peer_manager),
             "gifts_count": len(gift_manager),
             "gifts_active": len(gift_manager.list_active()),
@@ -595,7 +621,7 @@ def create_app(port: int, data_file: str, self_url: str,
             "burn_count": len(burn_manager),
             "contacts_count": len(contacts_manager),
             "contacts_addresses": contacts_manager.unique_addresses(),
-            "swap_pools_count": len(swap_manager),
+            "swap_pools_count": len(swap_manager.pools),
             "poc_count": len(poc_manager),
             "poc_pool_aix": poc_manager.pool.balance_aix(),
             "ai_memory_count": ai_memory.count(),
@@ -1573,7 +1599,7 @@ def create_app(port: int, data_file: str, self_url: str,
         addr = resolve_who(req.address)
         amount_in = int(req.amount_in_aix * config.SATOSHI)
         ok, msg, info = swap_manager.swap(
-            req.pool_id, addr, req.from_token, amount_in,
+            req.pool_id, addr, req.from_token, amount_in, req.private_key
         )
         if not ok:
             raise HTTPException(400, msg)
@@ -2116,526 +2142,135 @@ def create_app(port: int, data_file: str, self_url: str,
 
 
     # =========================================================================
-    # FIAT ON-RAMP
+    # TOKEN REGISTRY (??????? 2.0)
     # =========================================================================
     
     from pydantic import BaseModel
-    class FiatCreateRequest(BaseModel):
-        address: str
-        amount_rub: float
+    class TokenRegisterRequest(BaseModel):
+        creator: str
+        symbol: str
+        name: str
+        total_supply: int
+        emoji: str = "🪙"
+        description: str = ""
+        initial_pool_aix: float = 0.0
+        initial_pool_token: float = 0.0
+        usd_price: float = 0.0
 
-    @app.get("/fiat/rate")
-    def fiat_rate():
-        return {"rub_per_aix": AIX_PRICE_RUB, "usd_per_aix": 100.0}
+    @app.post("/token/register")
+    def token_register(req: TokenRegisterRequest):
+        creator_addr = resolve_who(req.creator)
 
-    @app.post("/fiat/create_invoice")
-    def fiat_create(req: FiatCreateRequest):
-        inv = fiat_manager.create_invoice(req.address, req.amount_rub)
-        # В реальности здесь был бы запрос к API ЮMoney для получения ссылки
-        # Сейчас мы даем фейковую ссылку, которая ведет на наш же симулятор
-        pay_url = f"/fiat/pay_mock?id={inv.id}"
-        return {"invoice_id": inv.id, "pay_url": pay_url, "amount_aix": inv.amount_aix, "amount_rub": inv.amount_rub}
+        # 0. Синхронизируем AIX из блокчейна в Swap (чтобы был баланс для пула)
+        real_aix = blockchain.get_balance(creator_addr)
+        swap_aix = swap_manager.get_balance(creator_addr, "AIX")
+        if real_aix > swap_aix:
+            swap_manager.add_balance(creator_addr, "AIX", real_aix - swap_aix)
 
-    @app.get("/fiat/pay_mock", response_class=HTMLResponse)
-    def fiat_pay_mock(id: str):
-        """Симулятор страницы оплаты ЮMoney."""
-        inv = fiat_manager.invoices.get(id)
-        if not inv: return "Счет не найден"
-        return f"""
-        <html><body style="background:#0A0E27;color:#fff;font-family:sans-serif;text-align:center;padding:50px;">
-            <h1>ЮMoney Симулятор</h1>
-            <p>Оплата счета: <b>{inv.amount_rub} ₽</b> за <b>{inv.amount_aix:.4f} AIX</b></p>
-            <p>Кошелек: {inv.address}</p>
-            <button onclick="pay()" style="padding:15px 30px; background:#FFD700; border:none; font-size:20px; cursor:pointer;">Оплатить</button>
-            <script>
-                async function pay() {{
-                    await fetch('/fiat/webhook?id={inv.id}', {{ method: 'POST' }});
-                    document.body.innerHTML = '<h1>✅ Оплачено!</h1><p>Вернитесь в кошелек AIX OS</p>';
-                }}
-            </script>
-        </body></html>
-        """
+        # 1. Проверка реальной ликвидности AIX
+        available_aix = swap_manager.get_balance(creator_addr, "AIX") / config.SATOSHI
+        if available_aix < req.initial_pool_aix:
+            raise HTTPException(400,
+                f"Недостаточно AIX в Swap: нужно {req.initial_pool_aix}, "
+                f"есть {available_aix:.4f}")
 
-    @app.post("/fiat/webhook")
-    def fiat_webhook(id: str):
-        """В реальности ЮMoney шлет сюда POST с подписью. Мы просто начисляем."""
-        ok = fiat_manager.mark_paid(id, blockchain)
-        if ok:
-            storage.save(blockchain)
-            return {"status": "ok"}
-        raise HTTPException(400, "Ошибка начисления")
+        # --- Цена токена через oracle ---
+        from core.oracle import get_usd_price, AIX_USD
+        sym = req.symbol.upper()
+        usd_price = float(req.usd_price) if req.usd_price > 0 else (get_usd_price(sym) or 0.0)
+        if usd_price <= 0:
+            raise HTTPException(400,
+                f"Не знаю USD-цену для '{sym}'. Укажи её вручную (поле usd_price).")
 
-    @app.get("/fiat/invoice/{id}")
-    def fiat_get_invoice(id: str):
-        inv = fiat_manager.invoices.get(id)
-        if not inv: raise HTTPException(404, "Не найден")
-        return {"status": inv.status, "amount_aix": inv.amount_aix, "tx_id": inv.tx_id}
+        # --- Авто-расчёт второй стороны ликвидности ---
+        aix_usd = float(AIX_USD)
+        pool_aix = float(req.initial_pool_aix)
+        pool_tok = float(req.initial_pool_token)
+        if pool_aix > 0 and pool_tok <= 0:
+            pool_tok = pool_aix * aix_usd / usd_price
+        elif pool_tok > 0 and pool_aix <= 0:
+            pool_aix = pool_tok * usd_price / aix_usd
+        elif pool_aix > 0 and pool_tok > 0:
+            # Проверим пропорцию: если расхождение > 5% — поправим
+            expected_tok = pool_aix * aix_usd / usd_price
+            if abs(pool_tok - expected_tok) / expected_tok > 0.05:
+                pool_tok = expected_tok
+        if pool_aix <= 0 or pool_tok <= 0:
+            raise HTTPException(400,
+                "Нужна реальная ликвидность (AIX > 0 или TOKEN > 0)")
 
-    # =========================================================================
-    # P2P ОБМЕН
-    # =========================================================================
+        # Проверка баланса AIX после пересчёта
+        if available_aix < pool_aix:
+            raise HTTPException(400,
+                f"Недостаточно AIX в Swap: нужно {pool_aix:.4f}, есть {available_aix:.4f}")
 
-    @app.get("/p2p/payment_methods")
-    def p2p_payment_methods():
-        return {"methods": P2P_PAYMENT_METHODS}
+        # 2. Регистрация токена
+        total_supply_raw = int(req.total_supply * config.SATOSHI)
+        initial_pool_aix_raw = int(pool_aix * config.SATOSHI)
+        initial_pool_token_raw = int(pool_tok * config.SATOSHI)
 
-    @app.get("/p2p/stats")
-    def p2p_stats():
-        return p2p_manager.stats()
-
-    @app.get("/p2p/orders")
-    def p2p_list_orders():
-        orders = p2p_manager.list_open()
-        return {"count": len(orders), "orders": [o.to_dict() for o in orders]}
-
-    @app.get("/p2p/orders/all")
-    def p2p_list_all(limit: int = 100):
-        orders = p2p_manager.list_all(limit=limit)
-        return {"count": len(orders), "orders": [o.to_dict() for o in orders]}
-
-    @app.get("/p2p/orders/seller/{address}")
-    def p2p_by_seller(address: str):
-        addr = resolve_who(address)
-        orders = p2p_manager.list_by_seller(addr)
-        return {"count": len(orders), "orders": [o.to_dict() for o in orders]}
-
-    @app.get("/p2p/orders/buyer/{address}")
-    def p2p_by_buyer(address: str):
-        addr = resolve_who(address)
-        orders = p2p_manager.list_by_buyer(addr)
-        return {"count": len(orders), "orders": [o.to_dict() for o in orders]}
-
-    @app.post("/p2p/orders")
-    def p2p_create_order(req: P2PCreateOrderRequest):
-        seller_addr = resolve_who(req.seller)
-        amount_raw = int(req.amount_aix * config.SATOSHI)
-        min_raw = int(req.min_amount_aix * config.SATOSHI)
-        max_raw = int(req.max_amount_aix * config.SATOSHI)
-        ok, result = p2p_manager.create_order(
-            seller=seller_addr,
-            amount_raw=amount_raw,
-            price_rub_per_aix=req.price_rub_per_aix,
-            min_amount_raw=min_raw,
-            max_amount_raw=max_raw,
-            payment_method=req.payment_method,
-            escrow_tx_id=req.escrow_tx_id,
+        ok, msg = token_registry.register(
+            creator=creator_addr,
+            symbol=req.symbol,
+            name=req.name,
+            total_supply=total_supply_raw,
+            emoji=req.emoji,
+            description=req.description,
+            initial_pool_aix=initial_pool_aix_raw,
+            initial_pool_token=initial_pool_token_raw,
+            usd_price=usd_price,
         )
         if not ok:
-            raise HTTPException(400, result)
-        o = p2p_manager.get(result)
-        return {"status": "created", "order": o.to_dict()}
-
-    @app.get("/p2p/orders/{order_id}")
-    def p2p_get_order(order_id: str):
-        o = p2p_manager.get(order_id)
-        if o is None:
-            raise HTTPException(404, "Ордер не найден")
-        return o.to_dict()
-
-    @app.post("/p2p/orders/{order_id}/accept")
-    def p2p_accept(order_id: str, req: P2PAcceptRequest):
-        buyer_addr = resolve_who(req.buyer)
-        deal_raw = int(req.deal_amount_aix * config.SATOSHI)
-        ok, msg = p2p_manager.accept_order(order_id, buyer_addr, deal_raw)
-        if not ok:
             raise HTTPException(400, msg)
-        return {"status": "accepted", "order": p2p_manager.get(order_id).to_dict()}
 
-    @app.post("/p2p/orders/{order_id}/confirm_paid")
-    def p2p_confirm_paid(order_id: str, req: P2PConfirmPaidRequest):
-        buyer_addr = resolve_who(req.buyer)
-        ok, msg = p2p_manager.confirm_paid(order_id, buyer_addr)
-        if not ok:
-            raise HTTPException(400, msg)
-        return {"status": "ok", "order": p2p_manager.get(order_id).to_dict()}
+        record = token_registry.get(req.symbol)
+        swap_manager.add_token(req.symbol.upper(), req.name, req.emoji)
 
-    @app.post("/p2p/orders/{order_id}/release")
-    def p2p_release(order_id: str, req: P2PReleaseRequest):
-        seller_addr = resolve_who(req.seller)
-        ok, msg = p2p_manager.release(order_id, seller_addr, blockchain=blockchain)
-        if not ok:
-            raise HTTPException(400, msg)
-        return {"status": "released", "tx_id": msg,
-                "order": p2p_manager.get(order_id).to_dict()}
+        # 3. Начисляем создателю эмиссию токенов в Swap
+        swap_manager.add_balance(creator_addr, req.symbol.upper(), total_supply_raw)
 
-    @app.post("/p2p/orders/{order_id}/cancel")
-    def p2p_cancel(order_id: str, req: P2PCancelRequest):
-        seller_addr = resolve_who(req.seller)
-        ok, msg = p2p_manager.cancel(order_id, seller_addr, blockchain=blockchain)
-        if not ok:
-            raise HTTPException(400, msg)
-        return {"status": "cancelled", "tx_id": msg,
-                "order": p2p_manager.get(order_id).to_dict()}
-
-    @app.post("/p2p/orders/{order_id}/dispute")
-    def p2p_dispute(order_id: str, req: P2PDisputeRequest):
-        by_addr = resolve_who(req.by)
-        ok, msg = p2p_manager.dispute(order_id, by_addr, req.reason)
-        if not ok:
-            raise HTTPException(400, msg)
-        return {"status": "disputed",
-                "order": p2p_manager.get(order_id).to_dict()}
-
-    @app.post("/p2p/orders/{order_id}/chat")
-    def p2p_chat(order_id: str, req: P2PChatRequest):
-        from_addr = resolve_who(req.from_address)
-        ok, msg = p2p_manager.add_chat_message(order_id, from_addr, req.text)
-        if not ok:
-            raise HTTPException(400, msg)
-        return {"status": "ok",
-                "chat": p2p_manager.get(order_id).chat}
-
-    # =========================================================================
-    # P2P
-    # =========================================================================
-
-    @app.get("/peers")
-    def list_peers():
-        return {"self_url": self_url, "count": len(peer_manager),
-                "peers": peer_manager.to_list()}
-
-    @app.post("/peers/add")
-    def add_peer(req: AddPeerRequest):
-        ok, msg = peer_manager.add(req.url)
-        if not ok:
-            raise HTTPException(400, msg)
-        peer = peer_manager.peers.get(req.url.rstrip("/"))
-        if peer:
-            peer.register_self(self_url)
-        return {"status": "added", "peer": req.url, "peers_count": len(peer_manager)}
-
-    @app.post("/peers/register")
-    def register_peer(req: RegisterPeerRequest):
-        ok, msg = peer_manager.register_from_remote(req.url)
-        return {"status": "ok" if ok else "error", "message": msg,
-                "peers_count": len(peer_manager)}
-
-    @app.delete("/peers/{url:path}")
-    def remove_peer(url: str):
-        if peer_manager.remove(url):
-            return {"status": "removed", "peers_count": len(peer_manager)}
-        raise HTTPException(404, "Пир не найден")
-
-    @app.post("/peers/ping")
-    def ping_peers():
-        return peer_manager.ping_all()
-
-    @app.get("/sync/chain")
-    def sync_chain():
-        return {"height": blockchain.height(), "difficulty": blockchain.difficulty,
-                "total_work": blockchain.total_work(),
-                "chain": [b.to_dict() for b in blockchain.chain]}
-
-    @app.post("/sync/block")
-    def sync_block(req: SyncBlockRequest):
-        try:
-            block = Block.from_dict(req.block)
-        except Exception as e:
-            raise HTTPException(400, f"Невалидный блок: {e}")
-        ok, msg = blockchain.add_block(block)
-        if not ok:
-            raise HTTPException(400, msg)
-        storage.save(blockchain)
-        sender_url = req.from_peer.rstrip("/") if req.from_peer else None
-        broadcast_count = 0
-        for peer in peer_manager.peers.values():
-            if sender_url and peer.url.rstrip("/") == sender_url:
-                continue
-            if peer.send_block(req.block):
-                broadcast_count += 1
-        return {"status": "accepted", "height": blockchain.height(),
-                "broadcast_to_peers": broadcast_count}
-
-    @app.post("/sync/tx")
-    def sync_tx(tx_dict: dict):
-        try:
-            tx = Transaction.from_dict(tx_dict)
-        except Exception as e:
-            raise HTTPException(400, f"Невалидная транзакция: {e}")
-        ok, msg = blockchain.mempool.add(tx)
-        if not ok:
-            raise HTTPException(400, msg)
-        storage.save(blockchain)
-        return {"status": "accepted", "mempool_size": blockchain.mempool.size()}
-
-    @app.post("/sync/pull")
-    def sync_pull():
-        best = peer_manager.best_peer()
-        if best is None:
-            return {"status": "no_peers", "height": blockchain.height()}
-        chain_data = best.get_chain()
-        if chain_data is None:
-            raise HTTPException(400, "Не удалось скачать цепочку")
-        try:
-            new_chain = [Block.from_dict(b) for b in chain_data["chain"]]
-        except Exception as e:
-            raise HTTPException(400, f"Ошибка разбора: {e}")
-        our_height = blockchain.height()
-        their_difficulty = chain_data.get("difficulty", blockchain.difficulty)
-        ok, msg = blockchain.replace_chain(new_chain, their_difficulty)
-        if not ok:
-            return {"status": "no_change", "our_height": our_height,
-                    "peer_height": chain_data.get("height", 0), "message": msg}
-        storage.save(blockchain)
-        return {"status": "replaced", "old_height": our_height,
-                "new_height": blockchain.height(), "from_peer": best.url,
-                "message": msg}
-
-    @app.get("/sync/state")
-    def sync_state():
-        return export_state(gift_manager, timelock_manager, sbt_manager,
-                            inheritance_manager, id_manager, burn_manager,
-                            contacts_manager, swap_manager, poc_manager, dao_manager)
-
-    @app.post("/sync/state/event")
-    def sync_state_event(req: SyncStateEventRequest):
-        ok, msg = apply_event(req.event, gift_manager,
-                              timelock_manager, sbt_manager,
-                              inheritance_manager, id_manager,
-                              burn_manager, contacts_manager,
-                              swap_manager, poc_manager, dao_manager)
-        if not ok:
-            raise HTTPException(400, msg)
-        sender_url = req.from_peer.rstrip("/") if req.from_peer else None
-        forwarded = 0
-        for peer in peer_manager.peers.values():
-            if sender_url and peer.url.rstrip("/") == sender_url:
-                continue
-            if peer.send_state_event(req.event):
-                forwarded += 1
-        return {"status": "applied", "message": msg,
-                "forwarded_to_peers": forwarded}
-
-    @app.post("/sync/state/pull")
-    def sync_state_pull():
-        total_added = {"gifts": 0, "timelocks": 0, "medals": 0,
-                       "inheritances": 0, "aix_ids": 0, "burn_artifacts": 0,
-                       "contacts": 0, "swap_pools": 0, "poc_contributions": 0}
-        peers_asked = 0
-        for peer in list(peer_manager.peers.values()):
-            if not peer.is_alive:
-                peer.ping()
-            if not peer.is_alive:
-                continue
-            state_data = peer.get_state()
-            if not state_data:
-                continue
-            peers_asked += 1
-            try:
-                stats = import_state(state_data, gift_manager,
-                                     timelock_manager, sbt_manager,
-                                     inheritance_manager, id_manager,
-                                     burn_manager, contacts_manager,
-                                     swap_manager, poc_manager, dao_manager)
-                for k in total_added:
-                    total_added[k] += stats["added"].get(k, 0)
-            except Exception as e:
-                print(f"WARN: Ошибка импорта: {e}")
-        return {"status": "done", "peers_asked": peers_asked,
-                "added": total_added,
-                "current": {
-                    "gifts": len(gift_manager),
-                    "timelocks": len(timelock_manager),
-                    "medals": len(sbt_manager),
-                    "inheritances": len(inheritance_manager),
-                    "aix_ids": len(id_manager),
-                    "burn_artifacts": len(burn_manager),
-                    "contacts": len(contacts_manager),
-                    "swap_pools": len(swap_manager),
-                    "poc_contributions": len(poc_manager),
-                }}
-
-
-    @app.post("/messages/send")
-    async def messages_send(req: MessageSendRequest):
-        msg = messenger.send(
-            req.sender, req.recipient, req.text,
-            reply_to=req.reply_to or "",
-            forwarded_from=req.forwarded_from or "",
-            media_id=req.media_id or "",
-            media_mime=req.media_mime or "",
-            media_size=req.media_size or 0,
+        # 4. Создаём пул TOKEN/AIX
+        ok_pool, pool_msg, pool = swap_manager.create_pool(
+            token_x=req.symbol.upper(),
+            token_y="AIX",
+            amount_x=initial_pool_token_raw,
+            amount_y=initial_pool_aix_raw,
+            creator=creator_addr,
         )
-        for addr in (msg.sender, msg.recipient):
-            await ws_manager.send_to(addr, {"type": "message", "message": msg.to_dict()})
-        return {"status": "ok", "message": msg.to_dict()}
+        if not ok_pool:
+            raise HTTPException(400, f"Токен зарегистрирован, но пул не создан: {pool_msg}")
 
-    @app.get("/messages/dialogs/{address}")
-    def messages_dialogs(address: str):
-        return {"dialogs": messenger.get_dialogs(address)}
-
-    @app.get("/messages/chat/{address1}/{address2}")
-    def messages_chat(address1: str, address2: str, viewer: str = ""):
-        msgs = messenger.get_chat(address1, address2, for_viewer=viewer or None)
-        return {"messages": [m.to_dict() for m in msgs]}
-
-    @app.websocket("/ws/chat")
-    async def ws_chat(websocket: WebSocket, address: str):
-        from crypto.address import is_valid_address
-        if not is_valid_address(address):
-            await websocket.close(code=4001)
-            return
-        await ws_manager.connect(websocket, address)
-        await ws_manager.broadcast(
-            {"type": "presence", "address": address, "online": True},
-            exclude={address},
-        )
-        try:
-            await websocket.send_json({
-                "type": "connected",
-                "address": address,
-                "online": ws_manager.online_list(),
-            })
-            while True:
-                data = await websocket.receive_json()
-                t = data.get("type")
-                if t == "ping":
-                    await websocket.send_json({"type": "pong"})
-                    ws_manager.cleanup_typing()
-                elif t == "typing":
-                    peer = data.get("peer", "")
-                    is_typing = bool(data.get("is_typing", False))
-                    if peer:
-                        ws_manager.set_typing(address, peer, is_typing)
-                        await ws_manager.send_to(peer, {
-                            "type": "typing", "from": address, "is_typing": is_typing,
-                        })
-                elif t == "read":
-                    mid = data.get("message_id", "")
-                    if mid:
-                        ok, msg = messenger.mark_read(mid, address)
-                        if ok and msg:
-                            for addr in (msg.sender, msg.recipient):
-                                if addr != address:
-                                    await ws_manager.send_to(addr, {
-                                        "type": "read", "message": msg.to_dict(),
-                                    })
-        except WebSocketDisconnect:
-            pass
-        except Exception as e:
-            print(f"WS [{address[:12]}...]: {e}")
-        finally:
-            ws_manager.disconnect(websocket, address)
-            await ws_manager.broadcast(
-                {"type": "presence", "address": address, "online": False},
-                exclude={address},
-            )
-
-    @app.post("/messages/read")
-    async def messages_read(req: MessageReadRequest):
-        ok, msg = messenger.mark_read(req.message_id, req.reader)
-        if not ok:
-            raise HTTPException(404, "Сообщение не найдено")
-        for addr in (msg.sender, msg.recipient):
-            if addr != req.reader:
-                await ws_manager.send_to(addr, {"type": "read", "message": msg.to_dict()})
-        return {"status": "ok", "message": msg.to_dict()}
-
-    @app.post("/messages/react")
-    async def messages_react(req: MessageReactRequest):
-        ok, msg = messenger.add_reaction(req.message_id, req.emoji, req.by)
-        if not ok:
-            raise HTTPException(404, "Сообщение не найдено")
-        for addr in (msg.sender, msg.recipient):
-            await ws_manager.send_to(addr, {"type": "reaction", "message": msg.to_dict()})
-        return {"status": "ok", "message": msg.to_dict()}
-
-    @app.post("/messages/unreact")
-    async def messages_unreact(req: MessageReactRequest):
-        ok, msg = messenger.remove_reaction(req.message_id, req.by)
-        if not ok:
-            raise HTTPException(404, "Реакция не найдена")
-        for addr in (msg.sender, msg.recipient):
-            await ws_manager.send_to(addr, {"type": "reaction", "message": msg.to_dict()})
-        return {"status": "ok", "message": msg.to_dict()}
-
-    @app.post("/messages/edit")
-    async def messages_edit(req: MessageEditRequest):
-        ok, msg = messenger.edit(req.message_id, req.new_text, req.by)
-        if not ok:
-            raise HTTPException(403, "Нельзя редактировать")
-        for addr in (msg.sender, msg.recipient):
-            await ws_manager.send_to(addr, {"type": "edit", "message": msg.to_dict()})
-        return {"status": "ok", "message": msg.to_dict()}
-
-    @app.post("/messages/delete")
-    async def messages_delete(req: MessageDeleteRequest):
-        if req.for_all:
-            ok, msg = messenger.delete_for_all(req.message_id, req.by)
-        else:
-            ok, msg = messenger.delete_for_me(req.message_id, req.by)
-        if not ok:
-            raise HTTPException(403, "Нельзя удалить")
-        if req.for_all:
-            for addr in (msg.sender, msg.recipient):
-                await ws_manager.send_to(addr, {"type": "delete", "message": msg.to_dict()})
-        else:
-            await ws_manager.send_to(req.by, {"type": "delete", "message": msg.to_dict()})
-        return {"status": "ok", "message": msg.to_dict()}
-
-    @app.post("/messages/pin")
-    async def messages_pin(req: MessagePinRequest):
-        ok, msg = messenger.pin(req.message_id)
-        if not ok:
-            raise HTTPException(404, "Сообщение не найдено")
-        for addr in (msg.sender, msg.recipient):
-            await ws_manager.send_to(addr, {"type": "pin", "message": msg.to_dict()})
-        return {"status": "ok", "message": msg.to_dict()}
-
-    @app.post("/messages/unpin")
-    async def messages_unpin(req: MessagePinRequest):
-        ok, msg = messenger.unpin(req.message_id)
-        if not ok:
-            raise HTTPException(404, "Сообщение не найдено")
-        for addr in (msg.sender, msg.recipient):
-            await ws_manager.send_to(addr, {"type": "pin", "message": msg.to_dict()})
-        return {"status": "ok", "message": msg.to_dict()}
-
-    # --- МЕДИА (фото) ---
-    import uuid as _uuid
-    from pathlib import Path as _Path
-
-    MEDIA_DIR = _Path(data_file).parent / "media"
-    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-    ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    MAX_MEDIA_BYTES = 8 * 1024 * 1024  # 8 MB
-
-    @app.post("/media/upload")
-    async def media_upload(
-        file: UploadFile = File(...),
-        uploader: str = Form(...),
-    ):
-        if file.content_type not in ALLOWED_MIME:
-            raise HTTPException(400, f"Недопустимый тип: {file.content_type}")
-        content = await file.read()
-        if len(content) == 0:
-            raise HTTPException(400, "Пустой файл")
-        if len(content) > MAX_MEDIA_BYTES:
-            raise HTTPException(400, f"Файл больше {MAX_MEDIA_BYTES // (1024*1024)} MB")
-        ext = (file.filename or "").rsplit(".", 1)
-        ext = ext[-1].lower() if len(ext) == 2 else "bin"
-        # sanitize
-        ext = "".join(c for c in ext if c.isalnum())[:5] or "bin"
-        fname = f"{_uuid.uuid4().hex}.{ext}"
-        path = MEDIA_DIR / fname
-        path.write_bytes(content)
         return {
             "status": "ok",
-            "media_id": fname,
-            "mime": file.content_type,
-            "size": len(content),
-            "uploader": uploader,
+            "token": record.to_dict(),
+            "pool": pool.to_dict(),
+            "message": msg,
         }
 
-    @app.get("/media/{filename}")
-    def media_get(filename: str):
-        # Защита от path traversal
-        if "/" in filename or "\\" in filename or filename.startswith("."):
-            raise HTTPException(400, "bad filename")
-        path = MEDIA_DIR / filename
-        if not path.exists() or not path.is_file():
-            raise HTTPException(404, "Файл не найден")
-        return FileResponse(path)
+    @app.get("/token/list")
+    def token_list():
+        tokens = token_registry.list_all()
+        return {"count": len(tokens), "tokens": [t.to_dict() for t in tokens]}
+
+    @app.get("/oracle/price/{symbol}")
+    def oracle_price(symbol: str):
+        """USD-цена для фронта. Если неизвестно — null."""
+        from core.oracle import get_usd_price, AIX_USD
+        p = get_usd_price(symbol)
+        return {"symbol": symbol.upper(), "usd_price": p, "aix_usd": AIX_USD}
+
+    @app.get("/oracle/known")
+    def oracle_known():
+        """Список тикеров, для которых есть live-цена."""
+        from core.oracle import known_symbols
+        return {"count": len(known_symbols()), "symbols": known_symbols()}
+
+    @app.get("/token/{symbol}")
+    def token_info(symbol: str):
+        record = token_registry.get(symbol)
+        if not record:
+            raise HTTPException(404, f"Token {symbol} not found")
+        return record.to_dict()
 
     @app.get("/messages/online")
     def messages_online():

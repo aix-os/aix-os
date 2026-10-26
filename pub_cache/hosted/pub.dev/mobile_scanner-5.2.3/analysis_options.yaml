@@ -1,7 +1,0 @@
-include: package:lint/analysis_options_package.yaml
-
-linter:
-  rules:
-    - combinators_ordering
-    - require_trailing_commas
-    - unnecessary_library_directive

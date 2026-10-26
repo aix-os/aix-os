@@ -239,3 +239,16 @@ scripts/update_readme.py
 scripts/cleanup_git_scripts.py
 data/
 messenger_context*.txt
+# AIX OS — не пушим в репо
+pub_cache/
+data/token_registry.json
+data/swap_*.json
+data/messenger.json
+data/ai_memory.json
+project_tree.txt
+patch_*.py
+scripts/fix*.py
+scripts/cleanup_tokens.py
+AI_BRIEF.json
+AI_BRIEF_FULL.md
+AIX_OS_FULL_DUMP.txt

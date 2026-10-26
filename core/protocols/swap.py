@@ -37,38 +37,19 @@ MIN_RESERVE_PERCENT = 5
 DEFAULT_FEE_PERCENT = 0.3
 LP_FEE_PERCENT = 0.2  # 0.2% идет в пул ликвидности
 FOUNDER_FEE_PERCENT = 0.1  # 0.1% идет основателю
-FOUNDER_FEE_PERCENT = 0.1
 
 
 # =============================================================================
 # КОНСТАНТЫ
 # =============================================================================
 
-# Имя TOKEN_CATALOG оставлено для совместимости с network/server.py
-# =============================================================================
-# 👑 AIX ИМПЕРИЯ — только нативный AIX и aCOIN (никаких -SIM)
-# =============================================================================
-A_COIN_CATALOG = {
-    "AIX":    {"name": "AIX OS (нативный)", "emoji": "⚡", "usd_price": 100.0},
-    "aBTC":   {"name": "AIX-Bitcoin", "emoji": "🟠", "usd_price": 90000.0},
-    "aETH":   {"name": "AIX-Ethereum", "emoji": "💎", "usd_price": 3500.0},
-    "aUSDT":  {"name": "AIX-Tether", "emoji": "💵", "usd_price": 1.0},
-    "aBNB":   {"name": "AIX-BNB", "emoji": "🟡", "usd_price": 600.0},
-    "aSOL":   {"name": "AIX-Solana", "emoji": "🟣", "usd_price": 150.0},
-    "aXRP":   {"name": "AIX-Ripple", "emoji": "💧", "usd_price": 0.5},
-    "aDOGE":  {"name": "AIX-Dogecoin", "emoji": "🐕", "usd_price": 0.15},
-    "aADA":   {"name": "AIX-Cardano", "emoji": "🔷", "usd_price": 0.4},
-    "aTON":   {"name": "AIX-Toncoin", "emoji": "💎", "usd_price": 7.0},
-    "aTRX":   {"name": "AIX-Tron", "emoji": "⚡", "usd_price": 0.12},
+COIN_CATALOG = {
+    "AIX":   {"name": "AIX", "emoji": "🤖", "usd_price": 1.0},
 }
 
-TOKEN_CATALOG = {k: {"name": v["name"], "emoji": v["emoji"], "decimals": 18} for k, v in A_COIN_CATALOG.items()}
+TOKEN_CATALOG = {k: {"name": v["name"], "emoji": v["emoji"], "decimals": 18} for k, v in COIN_CATALOG.items()}
 
 
-# Интегрируем в существующий список токенов
-for _k, _v in A_COIN_CATALOG.items():
-    if _k not in TOKEN_CATALOG:
-        TOKEN_CATALOG[_k] = {"name": _v["name"], "emoji": _v["emoji"], "decimals": 18}
 
 
 def compute_swap_output(reserve_in: int, reserve_out: int,
@@ -82,7 +63,6 @@ def compute_swap_output(reserve_in: int, reserve_out: int,
     new_reserve_out = k // new_reserve_in
     amount_out = reserve_out - new_reserve_out
     return max(0, amount_out)
-
 
 
 def compute_lp_tokens(amount_a: int, amount_b: int,
@@ -101,14 +81,12 @@ def make_pool_id(token_x: str, token_y: str) -> tuple:
     return f"{a}/{b}", a, b
 
 
-# Адрес основателя (Alice) — получает 0.1% с каждой сделки
 DEFAULT_FOUNDER_ADDRESS = "AIXTA5WAvDBAifiZuYfwfxM57Ajn8kGcG6xj2"
 
 
 # =============================================================================
 # МЕНЕДЖЕР
 # =============================================================================
-
 
 @dataclass
 class SwapPool:
@@ -164,13 +142,12 @@ class SwapManager:
         self.balances: dict = {}
         self.faucet_last: dict = {}
         self.blockchain = blockchain
-        # Founder можно задать параметром или через env
         self.founder_address = (
             founder_address
             or os.environ.get("AIX_FOUNDER_ADDRESS")
             or DEFAULT_FOUNDER_ADDRESS
         )
-        self.founder_earnings: dict = {}  # {token: total_earned}
+        self.founder_earnings: dict = {}
         self._load()
 
     def _load(self):
@@ -246,11 +223,26 @@ class SwapManager:
     # ПУЛЫ
     # =========================================================================
 
+    def add_token(self, symbol: str, name: str, emoji: str = "🪙", decimals: int = 18):
+        """Добавить новый токен в каталог (если его там ещё нет)."""
+        symbol = symbol.upper()
+        if symbol not in TOKEN_CATALOG:
+            TOKEN_CATALOG[symbol] = {"name": name, "emoji": emoji, "decimals": decimals}
+            self._save()
+            return True
+        return False
+
     def get_pool(self, pool_id: str) -> Optional[SwapPool]:
-        parts = pool_id.split("/")
+        parts = pool_id.upper().split("/")
         if len(parts) != 2:
             return None
-        pid, _, _ = make_pool_id(parts[0].strip(), parts[1].strip())
+        normalized = []
+        for p in parts:
+            p = p.strip()
+            if not p.endswith("-SIM"):
+                p = f"{p}-SIM" if p in ("AIX", "USDT", "BTC", "ETH", "SOL") else p
+            normalized.append(p)
+        pid, _, _ = make_pool_id(normalized[0], normalized[1])
         return self.pools.get(pid)
 
     def list_pools(self) -> list:
@@ -262,11 +254,12 @@ class SwapManager:
         if token_x == token_y:
             return False, "Нельзя создать пул одинаковых токенов", None
         if token_x not in TOKEN_CATALOG or token_y not in TOKEN_CATALOG:
-            return False, f"Неизвестный токен", None
+            return False, f"Неизвестный токен. Доступные: {', '.join(TOKEN_CATALOG.keys())}", None
         if amount_x <= 0 or amount_y <= 0:
             return False, "Суммы должны быть положительными", None
 
         pool_id, token_a, token_b = make_pool_id(token_x, token_y)
+
         if pool_id in self.pools:
             return False, f"Пул {pool_id} уже существует", None
 
@@ -300,25 +293,22 @@ class SwapManager:
         )
         self.pools[pool_id] = pool
         self._save()
-        return True, f"OK. LP-токенов выдано: {lp_tokens / config.SATOSHI:.4f}", pool
-
-    # =========================================================================
-    # ЛИКВИДНОСТЬ
-    # =========================================================================
+        return True, f"OK. LP-токенов выдано: {lp_tokens / 10**18:.4f}", pool
 
     def add_liquidity(self, pool_id: str, address: str,
                       amount_a: int, amount_b: int) -> tuple:
         pool = self.get_pool(pool_id)
         if pool is None:
             return False, "Пул не найден", 0
+
         if amount_a <= 0 or amount_b <= 0:
             return False, "Суммы должны быть положительными", 0
 
         expected_b = amount_a * pool.reserve_b // pool.reserve_a
         if abs(amount_b - expected_b) > expected_b * 0.02:
             return False, (f"Пропорция должна быть ~ {pool.reserve_b/pool.reserve_a:.6f}. "
-                          f"Для {amount_a/config.SATOSHI:.4f} {pool.token_a} нужно "
-                          f"~{expected_b/config.SATOSHI:.4f} {pool.token_b}"), 0
+                          f"Для {amount_a/10**18:.4f} {pool.token_a} нужно "
+                          f"~{expected_b/10**18:.4f} {pool.token_b}"), 0
 
         if not self.sub_balance(address, pool.token_a, amount_a):
             return False, f"Недостаточно {pool.token_a}", 0
@@ -341,6 +331,7 @@ class SwapManager:
         pool.initial_reserve_a += amount_a
         pool.initial_reserve_b += amount_b
         self._save()
+
         return True, "OK", lp_tokens
 
     def remove_liquidity(self, pool_id: str, address: str,
@@ -351,8 +342,8 @@ class SwapManager:
 
         held = pool.lp_holders.get(address, 0)
         if held < lp_amount:
-            return False, (f"У вас только {held/config.SATOSHI:.4f} LP, "
-                          f"запрошено {lp_amount/config.SATOSHI:.4f}"), 0, 0
+            return False, (f"У вас только {held/10**18:.4f} LP, "
+                          f"запрошено {lp_amount/10**18:.4f}"), 0, 0
 
         share_a = pool.reserve_a * lp_amount // pool.total_lp
         share_b = pool.reserve_b * lp_amount // pool.total_lp
@@ -372,6 +363,7 @@ class SwapManager:
         self.add_balance(address, pool.token_a, share_a)
         self.add_balance(address, pool.token_b, share_b)
         self._save()
+
         return True, "OK", share_a, share_b
 
     # =========================================================================
@@ -384,15 +376,11 @@ class SwapManager:
         if pool is None:
             return False, "Пул не найден", {}
 
-        from_token = from_token
         if from_token not in (pool.token_a, pool.token_b):
             return False, f"Токен {from_token} не в пуле {pool.id}", {}
+
         if amount_in <= 0:
             return False, "Сумма должна быть положительной", {}
-
-        # Founder fee вычитается до расчёта по AMM
-        founder_fee = amount_in * int(FOUNDER_FEE_PERCENT * 10) // 1000
-        amount_after_founder = amount_in - founder_fee
 
         if from_token == pool.token_a:
             reserve_in = pool.reserve_a
@@ -406,14 +394,14 @@ class SwapManager:
             min_out_reserve = pool.min_allowed_reserve_a()
 
         amount_out = compute_swap_output(reserve_in, reserve_out,
-                                         amount_after_founder, LP_FEE_PERCENT)
+                                         amount_in, pool.fee_percent)
         if amount_out <= 0:
             return False, "Слишком маленькая сумма для обмена", {}
 
         if reserve_out - amount_out < min_out_reserve:
             return False, (f"Сделка слишком велика для пула (защита от опустошения). "
                           f"Максимум можно вывести: "
-                          f"{(reserve_out - min_out_reserve) / config.SATOSHI:.4f} {to_token}"), {}
+                          f"{(reserve_out - min_out_reserve) / 10**18:.4f} {to_token}"), {}
 
         price_before = (reserve_out / reserve_in if reserve_in > 0 else 0)
         price_after = amount_out / amount_in if amount_in > 0 else 0
@@ -425,15 +413,13 @@ class SwapManager:
             "from_token": from_token,
             "to_token": to_token,
             "amount_in": amount_in,
-            "amount_in_aix": amount_in / config.SATOSHI,
+            "amount_in_aix": amount_in / 10**18,
             "amount_out": amount_out,
-            "amount_out_aix": amount_out / config.SATOSHI,
-            "founder_fee": founder_fee,
-            "founder_fee_aix": founder_fee / config.SATOSHI,
+            "amount_out_aix": amount_out / 10**18,
             "price": price_before,
             "execution_price": price_after,
             "slippage_percent": slippage,
-            "fee_percent": DEFAULT_FEE_PERCENT,
+            "fee_percent": pool.fee_percent,
         }
 
     def swap(self, pool_id: str, address: str,
@@ -441,22 +427,18 @@ class SwapManager:
         pool = self.get_pool(pool_id)
         if pool is None:
             return False, "Пул не найден", {}
+
         if amount_in <= 0:
             return False, "Сумма должна быть положительной", {}
 
-        from_token = from_token
         if from_token not in (pool.token_a, pool.token_b):
             return False, f"Токен {from_token} не в пуле {pool.id}", {}
 
         balance = self.get_balance(address, from_token)
         if balance < amount_in:
             return False, (f"Недостаточно {from_token}. "
-                          f"У вас: {balance/config.SATOSHI:.4f}, "
-                          f"нужно: {amount_in/config.SATOSHI:.4f}"), {}
-
-        # Founder fee
-        founder_fee = amount_in * int(FOUNDER_FEE_PERCENT * 10) // 1000
-        amount_after_founder = amount_in - founder_fee
+                          f"У вас: {balance/10**18:.4f}, "
+                          f"нужно: {amount_in/10**18:.4f}"), {}
 
         if from_token == pool.token_a:
             reserve_in = pool.reserve_a
@@ -470,32 +452,25 @@ class SwapManager:
             min_out_reserve = pool.min_allowed_reserve_a()
 
         amount_out = compute_swap_output(reserve_in, reserve_out,
-                                         amount_after_founder, LP_FEE_PERCENT)
+                                         amount_in, pool.fee_percent)
         if amount_out <= 0:
             return False, "Слишком маленькая сумма для обмена", {}
 
         if reserve_out - amount_out < min_out_reserve:
-            return False, (f"Сделка слишком велика для пула. "
-                          f"Максимум: {(reserve_out - min_out_reserve) / config.SATOSHI:.4f} {to_token}"), {}
+            return False, (f"Сделка слишком велика для пула (защита от опустошения). "
+                          f"Максимум можно вывести: "
+                          f"{(reserve_out - min_out_reserve) / 10**18:.4f} {to_token}"), {}
 
         if not self.sub_balance(address, from_token, amount_in):
             return False, "Ошибка списания", {}
 
         self.add_balance(address, to_token, amount_out)
 
-        # Founder fee идёт в баланс founder
-        if founder_fee > 0 and self.founder_address:
-            self.add_balance(self.founder_address, from_token, founder_fee)
-            self.founder_earnings[from_token] = (
-                self.founder_earnings.get(from_token, 0) + founder_fee
-            )
-
-        # LP fee остаётся в резервах пула
         if from_token == pool.token_a:
-            pool.reserve_a += amount_after_founder
+            pool.reserve_a += amount_in
             pool.reserve_b -= amount_out
         else:
-            pool.reserve_b += amount_after_founder
+            pool.reserve_b += amount_in
             pool.reserve_a -= amount_out
 
         self._save()
@@ -508,16 +483,14 @@ class SwapManager:
             "from_token": from_token,
             "to_token": to_token,
             "amount_in": amount_in,
-            "amount_in_aix": amount_in / config.SATOSHI,
+            "amount_in_aix": amount_in / 10**18,
             "amount_out": amount_out,
-            "amount_out_aix": amount_out / config.SATOSHI,
-            "founder_fee": founder_fee,
-            "founder_fee_aix": founder_fee / config.SATOSHI,
+            "amount_out_aix": amount_out / 10**18,
             "price_before": price_before,
             "price_after": price_after,
             "slippage_percent": ((price_before - price_after) / price_before * 100
                                 if price_before > 0 else 0),
-            "fee_percent": DEFAULT_FEE_PERCENT,
+            "fee_percent": pool.fee_percent,
         }
 
     # =========================================================================
@@ -531,11 +504,15 @@ class SwapManager:
                 "id": pool.id,
                 "token_a": pool.token_a,
                 "token_b": pool.token_b,
-                "reserve_a_aix": pool.reserve_a / config.SATOSHI,
-                "reserve_b_aix": pool.reserve_b / config.SATOSHI,
+                "reserve_a_aix": pool.reserve_a / 10**18,
+                "reserve_b_aix": pool.reserve_b / 10**18,
+                "initial_reserve_a_aix": pool.initial_reserve_a / 10**18,
+                "initial_reserve_b_aix": pool.initial_reserve_b / 10**18,
+                "min_allowed_a_aix": pool.min_allowed_reserve_a() / 10**18,
+                "min_allowed_b_aix": pool.min_allowed_reserve_b() / 10**18,
                 "price_a_in_b": pool.price_a_in_b(),
                 "price_b_in_a": pool.price_b_in_a(),
-                "total_lp": pool.total_lp / config.SATOSHI,
+                "total_lp": pool.total_lp / 10**18,
                 "lp_holders": len(pool.lp_holders),
                 "fee_percent": pool.fee_percent,
                 "created_at": pool.created_at,
@@ -544,12 +521,6 @@ class SwapManager:
         return {
             "total_pools": len(self.pools),
             "total_holders": len(self.balances),
-            "founder_address": self.founder_address,
-            "founder_fee_percent": FOUNDER_FEE_PERCENT,
-            "lp_fee_percent": LP_FEE_PERCENT,
-            "founder_earnings": {
-                k: v / config.SATOSHI for k, v in self.founder_earnings.items()
-            },
             "pools": pools_info,
         }
 
@@ -564,12 +535,12 @@ class SwapManager:
         return {
             "pool_id": pool.id,
             "lp_tokens": held,
-            "lp_tokens_aix": held / config.SATOSHI,
+            "lp_tokens_aix": held / 10**18,
             "share_percent": share * 100,
             "share_a": share_a,
-            "share_a_aix": share_a / config.SATOSHI,
+            "share_a_aix": share_a / 10**18,
             "share_b": share_b,
-            "share_b_aix": share_b / config.SATOSHI,
+            "share_b_aix": share_b / 10**18,
         }
 
     # =========================================================================
@@ -580,7 +551,6 @@ class SwapManager:
         return {
             "pools": [p.to_dict() for p in self.pools.values()],
             "balances": self.balances,
-            "founder_earnings": self.founder_earnings,
         }
 
     def import_state(self, data: dict) -> tuple:

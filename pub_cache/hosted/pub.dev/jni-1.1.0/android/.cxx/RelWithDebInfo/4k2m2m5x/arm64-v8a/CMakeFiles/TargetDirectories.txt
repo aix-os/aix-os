@@ -1,3 +1,0 @@
-R:/pub_cache/hosted/pub.dev/jni-1.1.0/android/.cxx/RelWithDebInfo/4k2m2m5x/arm64-v8a/CMakeFiles/jni.dir
-R:/pub_cache/hosted/pub.dev/jni-1.1.0/android/.cxx/RelWithDebInfo/4k2m2m5x/arm64-v8a/CMakeFiles/edit_cache.dir
-R:/pub_cache/hosted/pub.dev/jni-1.1.0/android/.cxx/RelWithDebInfo/4k2m2m5x/arm64-v8a/CMakeFiles/rebuild_cache.dir

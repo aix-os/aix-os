@@ -173,6 +173,7 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
         <div class="tab" data-tab="ai">🧠 AI Memory</div>
         <div class="tab" data-tab="dao">🗳 DAO</div>
         <div class="tab" data-tab="brain">🧠 Brain</div>
+        <div class="tab" data-tab="token-create">🪙 Создать токен</div>
     </div>
 
     <div class="panel active" id="panel-overview">
@@ -254,15 +255,6 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
             <div id="token-balances"><div class="empty">Загрузка...</div></div>
             <div class="faucet-row">
                 <button class="secondary small" onclick="faucet('AIX')">+1000 AIX</button>
-                <button class="secondary small" onclick="faucet('USDT')">+1000 USDT</button>
-                <button class="secondary small" onclick="faucet('USDC')">+1000 USDC</button>
-                <button class="secondary small" onclick="faucet('BTC')">+1000 BTC</button>
-                <button class="secondary small" onclick="faucet('ETH')">+1000 ETH</button>
-                <button class="secondary small" onclick="faucet('SOL')">+1000 SOL</button>
-                <button class="secondary small" onclick="faucet('TON')">+1000 TON</button>
-                <button class="secondary small" onclick="faucet('BNB')">+1000 BNB</button>
-                <button class="secondary small" onclick="faucet('XRP')">+1000 XRP</button>
-                <button class="secondary small" onclick="faucet('DOGE')">+1000 DOGE</button>
             </div>
             <div class="result" id="faucet-result"></div>
         </div>
@@ -475,7 +467,38 @@ footer { text-align:center; padding:30px; color:var(--muted); font-size:12px;
         </div>
     </div>
 
-    <div class="panel" id="panel-brain">
+        <div class="panel" id="panel-token-create">
+        <h2>🪙 Создать токен</h2>
+        <div class="notice">Зарегистрируй обёрнутый токен (aBTC, aETH, aUSDT и т.д.) — пул AIX/TOKEN создастся автоматически по live-курсу.</div>
+        <div class="card">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Кошелёк-создатель</label>
+            <select id="token-wallet"></select>
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Тикер (например: BTC, ETH, USDT, PEPE)</label>
+            <input id="token-symbol" type="text" placeholder="BTC" maxlength="10" style="text-transform:uppercase;" oninput="onTokenSymbolInput()">
+            <div id="token-oracle-hint" style="font-size:12px; color:var(--muted); margin:-6px 0 12px;"></div>
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Название</label>
+            <input id="token-name" type="text" placeholder="Bitcoin (wrapped)">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Эмиссия (в единицах токена)</label>
+            <input id="token-supply" type="number" placeholder="21000000" min="1">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Эмодзи (иконка)</label>
+            <input id="token-emoji" type="text" placeholder="🪙" maxlength="4">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">USD-цена токена (0 = взять из oracle)</label>
+            <input id="token-usd-price" type="number" placeholder="0" min="0" step="any" oninput="recalcPool()">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Ликвидность AIX (реальная, из твоего баланса)</label>
+            <input id="token-pool-aix" type="number" placeholder="100" min="0" step="0.01" oninput="recalcPool()">
+            <label style="display:block; margin-bottom:6px; color:var(--muted); font-size:12px;">Ликвидность TOKEN (авто по курсу)</label>
+            <input id="token-pool-token" type="number" placeholder="0" min="0" step="any" oninput="recalcPool()">
+            <div id="token-pool-hint" style="font-size:12px; color:var(--neon); margin:-6px 0 12px;"></div>
+            <button onclick="createToken()" id="token-btn" style="width:100%;">Создать токен</button>
+            <div class="result" id="token-result"></div>
+        </div>
+    </div>
+        </div>
+    </div>
+        </div>
+    </div>
+
+<div class="panel" id="panel-brain">
         <h2>🧠 AIX Brain</h2>
         <p style="color:#888; font-size:13px; margin-top:-10px;">
             Встроенный AI-напарник. Локальная модель. Ключи недосягаемы.
@@ -662,6 +685,7 @@ async function refreshWallets() {
         $("send-sender").innerHTML = opts;
         $("swap-wallet").innerHTML = opts;
         $("poc-wallet").innerHTML = opts;
+        refreshTokenWallets();
         const mineEl = $("mine-wallet");
         if (mineEl) mineEl.innerHTML = opts;
     } catch (e) {
@@ -788,7 +812,7 @@ async function loadSwapTokens() {
         const opts = tokens.map(t => `<option value="${t}">${d.tokens[t].emoji} ${t}</option>`).join("");
         $("swap-from-token").innerHTML = opts;
         $("swap-to-token").innerHTML = opts;
-        $("swap-from-token").value = "USDT";
+        $("swap-from-token").value = "AIX";
         $("swap-to-token").value = "AIX";
     } catch (e) {}
 }
@@ -1222,6 +1246,139 @@ document.addEventListener("DOMContentLoaded", () => {
     if (stt) stt.addEventListener("change", updateQuote);
     if (sw) sw.addEventListener("change", refreshSwapBalances);
 });
+
+
+// --- Live-курс и авто-расчёт ликвидности ---
+let TOKEN_USD_PRICE = 0;
+let AIX_USD_PRICE = 100;
+
+async function onTokenSymbolInput() {
+    const sym = $("token-symbol").value.trim().toUpperCase();
+    const hint = $("token-oracle-hint");
+    TOKEN_USD_PRICE = 0;
+    if (!sym) {
+        hint.textContent = "";
+        recalcPool();
+        return;
+    }
+    try {
+        const d = await apiGet("/oracle/price/" + encodeURIComponent(sym));
+        AIX_USD_PRICE = d.aix_usd || 100;
+        if (d.usd_price && d.usd_price > 0) {
+            TOKEN_USD_PRICE = d.usd_price;
+            const fmt = d.usd_price < 0.01
+                ? d.usd_price.toExponential(3)
+                : d.usd_price.toLocaleString("en-US", {maximumFractionDigits: 2});
+            hint.textContent = "Oracle: 1 " + sym + " = $" + fmt;
+            hint.style.color = "var(--green)";
+            if (!$("token-usd-price").value) $("token-usd-price").value = d.usd_price;
+        } else {
+            hint.textContent = "⚠ Oracle не знает " + sym + ". Укажи USD-цену вручную.";
+            hint.style.color = "var(--gold)";
+        }
+    } catch (e) {
+        hint.textContent = "⚠ Oracle недоступен";
+        hint.style.color = "var(--red)";
+    }
+    recalcPool();
+}
+
+function recalcPool() {
+    const sym = $("token-symbol").value.trim().toUpperCase();
+    const manual = parseFloat($("token-usd-price").value);
+    const usd = manual > 0 ? manual : TOKEN_USD_PRICE;
+    const aix = parseFloat($("token-pool-aix").value);
+    const tok = parseFloat($("token-pool-token").value);
+    const hint = $("token-pool-hint");
+
+    if (!usd || usd <= 0) { hint.textContent = ""; return; }
+
+    const aixUsd = AIX_USD_PRICE || 100;
+    const rate = usd / aixUsd;  // сколько TOKEN за 1 AIX
+
+    if (aix > 0 && !tok) {
+        const auto = aix * rate;
+        $("token-pool-token").value = auto.toPrecision(6);
+        hint.textContent = "Курс: 1 AIX = " + rate.toPrecision(6) + " " + sym +
+                          " — TOKEN рассчитан автоматически";
+    } else if (tok > 0 && !aix) {
+        const auto = tok / rate;
+        $("token-pool-aix").value = auto.toPrecision(6);
+        hint.textContent = "Курс: 1 " + sym + " = " + (1/rate).toPrecision(6) + " AIX — AIX рассчитан автоматически";
+    } else if (aix > 0 && tok > 0) {
+        const expected = aix * rate;
+        const diff = Math.abs(tok - expected) / expected;
+        if (diff > 0.05) {
+            hint.textContent = "⚠ Пропорция не по курсу. Ожидается " + expected.toPrecision(6) + " " + sym + " — будет исправлено при создании.";
+            hint.style.color = "var(--gold)";
+        } else {
+            hint.textContent = "✓ Пропорция в порядке";
+            hint.style.color = "var(--neon)";
+        }
+    }
+}
+
+async function createToken() {
+    const res = $("token-result");
+    const wn = $("token-wallet").value;
+    const symbol = $("token-symbol").value.trim().toUpperCase();
+    const name = $("token-name").value.trim();
+    const supply = parseInt($("token-supply").value);
+    const emoji = $("token-emoji").value.trim() || "\u{1FA99}";
+    const usdInput = parseFloat($("token-usd-price").value);
+    const usd = usdInput > 0 ? usdInput : TOKEN_USD_PRICE;
+    const poolAix = parseFloat($("token-pool-aix").value) || 0;
+    const poolToken = parseFloat($("token-pool-token").value) || 0;
+
+    if (!wn || !symbol || !name || !supply || supply <= 0) {
+        res.className = "result error show";
+        res.textContent = "\u274C Заполни все обязательные поля";
+        return;
+    }
+    if (!usd || usd <= 0) {
+        res.className = "result error show";
+        res.textContent = "\u274C Укажи USD-цену токена (или выбери тикер, который знает oracle)";
+        return;
+    }
+    if (poolAix <= 0 && poolToken <= 0) {
+        res.className = "result error show";
+        res.textContent = "\u274C Укажи ликвидность: AIX или TOKEN";
+        return;
+    }
+    const w = currentWallets.find(x => x.name === wn);
+    if (!w) { res.className = "result error show"; res.textContent = "\u274C Кошелёк не найден"; return; }
+
+    res.className = "result show";
+    res.textContent = "\u23F3 Регистрация " + symbol + " и создание пула AIX/" + symbol + "...";
+    try {
+        const data = await apiPost("/token/register", {
+            creator: w.address,
+            symbol: symbol,
+            name: name,
+            total_supply: supply,
+            emoji: emoji,
+            usd_price: usd,
+            initial_pool_aix: poolAix,
+            initial_pool_token: poolToken,
+        });
+        res.textContent =
+            "\u2705 Токен " + data.token.symbol + " создан!\n" +
+            "USD-цена: $" + usd + "\n" +
+            "Пул: " + (data.pool ? data.pool.id : "—") + "\n" +
+            "Ликвидность: " + poolAix + " AIX + " + poolToken + " " + symbol;
+        await loadSwapTokens();
+        await refreshPools();
+    } catch (e) {
+        res.className = "result error show";
+        res.textContent = "\u274C " + e.message;
+    }
+}
+
+function refreshTokenWallets() {
+    const opts = currentWallets.map(w => `<option value="${w.name}">${w.name}</option>`).join("");
+    const el = $("token-wallet");
+    if (el) el.innerHTML = opts;
+}
 
 async function refreshAll() {
     await refreshStatus();
