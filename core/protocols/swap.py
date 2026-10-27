@@ -44,7 +44,7 @@ FOUNDER_FEE_PERCENT = 0.1  # 0.1% идет основателю
 # =============================================================================
 
 COIN_CATALOG = {
-    "AIX":   {"name": "AIX", "emoji": "🤖", "usd_price": 1.0},
+    "AIX":   {"name": "AIX", "emoji": "🤖", "usd_price": 100.0},
 }
 
 TOKEN_CATALOG = {k: {"name": v["name"], "emoji": v["emoji"], "decimals": 18} for k, v in COIN_CATALOG.items()}
