@@ -2030,6 +2030,13 @@ def create_app(port: int, data_file: str, self_url: str,
             ok, result, tx_id = faucet_manager.claim(address=req.address, ip=ip)
             if not ok:
                 raise HTTPException(400, result)
+            # 🔧 ФИКС: автоматом майним один блок, чтобы faucet-tx попал в блокчейн сразу
+            # и баланс получателя обновился без ручного вызова /mine.
+            try:
+                mine_res = mine(MineRequest(miner_address=req.address, broadcast=True))
+            except Exception:
+                # Если майнинг не удался — tx остаётся в mempool, баланс придёт со следующим блоком
+                pass
             return {
                 "status": "sent",
                 "address": req.address,
