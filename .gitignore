@@ -264,3 +264,7 @@ _[!_]*.py
 *.tar.gz
 build_apk_output.txt
 project-tree.txt
+
+# TDLib prebuilt (local, arm64 only)
+.prebuilt/
+tdlib-arm64-v1.8.65/
