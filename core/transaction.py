@@ -28,9 +28,10 @@ from crypto.hash import sha256
 from crypto.keys import sign, verify
 from crypto.address import is_valid_address, pubkey_to_address
 import ecdsa
+from core import vesting
 
 
-SYSTEM_SENDERS = {"COINBASE", "LOTTERY", "POC-POOL", "P2P-ESCROW", "FAUCET"}
+SYSTEM_SENDERS = {"COINBASE", "LOTTERY", "POC-POOL", "P2P-ESCROW", "FAUCET", "GIFT-ESCROW", "GIFT-SYSTEM"}
 SYSTEM_RECIPIENTS = {"BURN", "POC-POOL", "P2P-ESCROW", "TREASURY"}
 
 # Комиссия сети: 0.1% от суммы перевода
@@ -57,8 +58,16 @@ class Transaction:
     public_key: str = ""
     signature: str = ""
     message: str = ""
+    _payload_override: str = ""
 
     def to_signing_payload(self) -> bytes:
+        # Если клиент прислал оригинальный payload — используем его как есть
+        override = getattr(self, '_payload_override', None)
+        if override:
+            try:
+                return bytes.fromhex(override)
+            except ValueError:
+                pass
         data = {
             "sender": self.sender,
             "recipient": self.recipient,
@@ -78,7 +87,8 @@ class Transaction:
         signature = sign(private_key, payload)
         from crypto.keys import get_public_key_bytes
         self.public_key = get_public_key_bytes(private_key).hex()
-        self.signature = signature.hex()
+        self.signature = signature.hex() if isinstance(signature, bytes) else signature
+        self._payload_override = payload.hex()
 
     def is_valid(self) -> tuple:
         # Системные sender'ы
@@ -101,8 +111,19 @@ class Transaction:
 
         if self.amount <= 0:
             return False, "Сумма должна быть положительной"
-        if self.sender == self.recipient:
-            return False, "Нельзя переводить самому себе"
+# self == recipient разрешено (saved messages)
+        # VESTING: AIX-DEV может отправить только разблокированную часть
+        try:
+            if vesting.AIX_DEV_ADDRESS and self.sender == vesting.AIX_DEV_ADDRESS:
+                can, status = vesting.can_send(self.amount, self.fee)
+                if not can:
+                    return False, (f"AIX-DEV vesting: разблокировано "
+                                   f"{status['available_aix']:.2f} AIX, "
+                                   f"запрошено {(self.amount + self.fee) / 100_000_000:.2f} AIX "
+                                   f"(progress {status['progress']*100:.1f}%)")
+        except Exception as e:
+            print(f"[vesting] warning: {e}")
+
         if not self.signature or not self.public_key:
             return False, "Нет подписи или публичного ключа"
 

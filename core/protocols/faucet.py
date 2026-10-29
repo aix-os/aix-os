@@ -37,9 +37,9 @@ class FaucetManager:
         for e in self.entries:
             if e["address"] == address:
                 return False, "Этот адрес уже получал AIX"
-            if e.get("ip") == ip and time.time() - e["time"] < COOLDOWN_IP_HOURS * 3600:
+            if e.get("ip") == ip and time.time() - (e.get("time") or e.get("ts") or 0) < COOLDOWN_IP_HOURS * 3600:
                 return False, f"Этот IP получал AIX менее {COOLDOWN_IP_HOURS} часов назад"
-        recent = [e for e in self.entries if time.time() - e["time"] < 3600]
+        recent = [e for e in self.entries if time.time() - (e.get("time") or e.get("ts") or 0) < 3600]
         if len(recent) >= HOURLY_LIMIT:
             return False, "Достигнут часовой лимит выдачи"
         return True, "OK"
@@ -73,6 +73,6 @@ class FaucetManager:
             "hourly_limit": HOURLY_LIMIT,
             "total_claims": len(self.entries),
             "total_sent_aix": sum(e["amount_aix"] for e in self.entries),
-            "claims_last_hour": len([e for e in self.entries if time.time() - e["time"] < 3600]),
-            "claims_last_24h": len([e for e in self.entries if time.time() - e["time"] < 86400]),
+            "claims_last_hour": len([e for e in self.entries if time.time() - (e.get("time") or e.get("ts") or 0) < 3600]),
+            "claims_last_24h": len([e for e in self.entries if time.time() - (e.get("time") or e.get("ts") or 0) < 86400]),
         }

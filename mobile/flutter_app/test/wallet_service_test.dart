@@ -35,7 +35,7 @@ void main() {
     await svc.createWallet(name: 'to-delete');
     expect(await svc.hasWallet(), true);
 
-    await svc.deleteWallet();
+    await svc.deleteWallet('dummy');
     expect(await svc.hasWallet(), false);
   });
 

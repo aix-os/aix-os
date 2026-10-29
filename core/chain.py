@@ -42,6 +42,49 @@ class Blockchain:
         self._apply_block_to_cache(genesis)
         self._is_valid_height = 0
 
+    def ensure_premine(self) -> None:
+        """Кладёт pre-mine tx в мемпул (закроется следующим /mine)."""
+        try:
+            from core import vesting
+        except Exception:
+            return
+        addr = vesting.AIX_DEV_ADDRESS
+        if addr is None:
+            return
+        
+        # 1. Проверка: уже в балансе (в блокчейне)?
+        current = self._balances.get(addr, 0)
+        if current >= vesting.AIX_DEV_TOTAL_RAW:
+            print(f"[premine] AIX-DEV уже имеет {current/100000000:.2f} AIX в блокчейне, скип")
+            return
+        
+        # 2. Проверка: уже в мемпуле (ждёт майнинга)?
+        for tx in self.mempool.transactions.values():
+            if tx.sender == "COINBASE" and tx.recipient == addr:
+                print(f"[premine] tx уже в мемпуле, ждёт майнинга, скип")
+                return
+
+        from core.transaction import Transaction
+        import time as _t
+        tx = Transaction(
+            sender="COINBASE",
+            recipient=addr,
+            amount=vesting.AIX_DEV_TOTAL_RAW,
+            timestamp=_t.time(),
+            fee=0,
+            message="AIX OS Foundation Reserve (Vesting 4y)",
+        )
+        ok, msg = tx.is_valid()
+        if not ok:
+            print(f"[premine] tx invalid: {msg}")
+            return
+        ok, msg = self.mempool.add(tx)
+        if ok:
+            print(f"[premine] ✅ tx в мемпуле: {vesting.AIX_DEV_TOTAL_AIX} AIX → AIX-DEV")
+        else:
+            print(f"[premine] ❌ mempool.add: {msg}")
+
+
     def _apply_block_to_cache(self, block: Block) -> None:
         """Обновляет балансы и статистику на основе нового блока."""
         for tx in block.transactions:
@@ -66,6 +109,7 @@ class Blockchain:
             self._apply_block_to_cache(block)
         self._is_valid_height = self.height()
         self._is_valid_cache = (True, "OK")
+        self.ensure_premine()
 
     def add_block(self, block: Block) -> tuple:
         previous_block = self.last_block()

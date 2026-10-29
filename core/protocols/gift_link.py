@@ -170,25 +170,25 @@ class GiftLinkManager:
         if link.is_expired():
             return False, "Срок действия ссылки истёк"
 
-        sender_wallet = self._find_wallet(link.sender)
-        if sender_wallet is None:
-            return False, f"Кошелёк отправителя не найден локально"
-
+        # ESCROW: переводим GIFT-ESCROW → recipient (системный sender)
         tx = Transaction(
-            sender=link.sender,
+            sender="GIFT-ESCROW",
             recipient=recipient,
             amount=link.amount,
             message=link.message or f"Gift-Link {link.code}",
         )
-        sender_wallet.sign_transaction(tx)
         ok, msg = tx.is_valid()
         if not ok:
-            return False, f"Ошибка подписи: {msg}"
+            return False, f"Ошибка валидации: {msg}"
 
         if self.blockchain is not None:
             ok, msg = self.blockchain.mempool.add(tx)
             if not ok:
                 return False, f"Не добавлено в mempool: {msg}"
+            try:
+                self.blockchain.mine_block(recipient)
+            except Exception:
+                pass
 
         link.claimed = True
         link.claimed_by = recipient
@@ -206,6 +206,24 @@ class GiftLinkManager:
             return False, "Только отправитель может отменить"
         if link.cancelled:
             return False, "Уже отменена"
+        
+        # ESCROW: возвращаем GIFT-ESCROW → sender
+        if self.blockchain is not None:
+            tx = Transaction(
+                sender="GIFT-ESCROW",
+                recipient=link.sender,
+                amount=link.amount,
+                message=f"Gift cancel {link.code}",
+            )
+            ok, msg = tx.is_valid()
+            if ok:
+                blockchain_ok, _ = self.blockchain.mempool.add(tx)
+                if blockchain_ok:
+                    try:
+                        self.blockchain.mine_block(link.sender)
+                    except Exception:
+                        pass
+        
         link.cancelled = True
         self._save()
         return True, "OK"

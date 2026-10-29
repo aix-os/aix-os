@@ -149,6 +149,7 @@ class SwapManager:
         )
         self.founder_earnings: dict = {}
         self._load()
+        self.history: list[dict] = []
 
     def _load(self):
         if not self.storage_path.exists():
@@ -164,6 +165,26 @@ class SwapManager:
             self.founder_earnings = data.get("founder_earnings", {})
         except (json.JSONDecodeError, OSError) as e:
             print(f"WARN: не удалось загрузить свапы: {e}")
+
+    def add_history(self, item: dict) -> None:
+        """Добавить запись в swap-историю (максимум 1000)."""
+        try:
+            self.history.append(item)
+            if len(self.history) > 1000:
+                self.history = self.history[-1000:]
+        except Exception as e:
+            print(f"[swap add_history] {e}")
+
+    def get_history(self, address: str, limit: int = 50) -> list[dict]:
+        """История для адреса (входящие и исходящие)."""
+        addr = address.strip()
+        result = []
+        for h in reversed(self.history):
+            if h.get("from") == addr or h.get("to") == addr:
+                result.append(h)
+                if len(result) >= limit:
+                    break
+        return result
 
     def _save(self):
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)

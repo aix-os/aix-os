@@ -252,3 +252,15 @@ scripts/cleanup_tokens.py
 AI_BRIEF.json
 AI_BRIEF_FULL.md
 AIX_OS_FULL_DUMP.txt
+
+# Vesting private key — NEVER commit
+data/aix_dev_key.json
+
+# =============================================================================
+# AIX OS — session scripts, backups, binaries (DO NOT COMMIT)
+# =============================================================================
+_[!_]*.py
+*.bak_*
+*.tar.gz
+build_apk_output.txt
+project-tree.txt

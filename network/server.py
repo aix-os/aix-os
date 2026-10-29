@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import Request,  FastAPI, HTTPException
+from fastapi import Request,  FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi import UploadFile, File, Form
 from fastapi.responses import FileResponse
 from fastapi import WebSocket, WebSocketDisconnect
@@ -71,6 +71,7 @@ from network.discovery import MdnsDiscovery
 from core.governance.dao import DAOManager
 from core.protocols.faucet import FaucetManager, FAUCET_AMOUNT_AIX
 from ai.brain import BrainAgent, BrainConfig
+from core import vesting
 
 
 class SendRequest(BaseModel):
@@ -117,12 +118,25 @@ class SubmitTxRequest(BaseModel):
     message: str = ""
     public_key: str
     signature: str
+    payload: str = ""
+
 
 class GiftCreateRequest(BaseModel):
     sender: str
     amount_aix: float
     ttl_days: int = 30
     message: str = ""
+
+class GiftCreateSignedRequest(BaseModel):
+    code: str = ""  # сервер сам сгенерирует если пусто
+    sender: str
+    amount_aix: float
+    ttl_days: int = 30
+    message: str = ""
+    public_key: str
+    signature: str
+    payload: str = ""
+
 
 class GiftClaimRequest(BaseModel):
     code: str
@@ -419,6 +433,8 @@ def create_app(port: int, data_file: str, self_url: str,
         print(f"[{port}] Загружено: высота {loaded.height()}")
         blockchain = loaded
 
+    vesting.init(blockchain)
+    blockchain.ensure_premine()
     peer_manager = PeerManager(self_url, storage_path=peers_file)
     mdns = MdnsDiscovery(port, peer_manager)
     mdns = MdnsDiscovery(port, peer_manager)
@@ -854,6 +870,82 @@ def create_app(port: int, data_file: str, self_url: str,
     # =========================================================================
     # GIFT
     # =========================================================================
+
+    @app.post("/gift/create-signed")
+    def gift_create_signed(req: GiftCreateSignedRequest):
+        from crypto.address import is_valid_address, private_key_to_address
+        from core.transaction import Transaction as Tx
+        sender_addr = resolve_who(req.sender)
+        if not is_valid_address(sender_addr):
+            raise HTTPException(400, "Невалидный адрес")
+        amount_raw = int(req.amount_aix * config.SATOSHI)
+        if amount_raw <= 0:
+            raise HTTPException(400, "Сумма должна быть положительной")
+
+        # Генерируем или проверяем код
+        code = (req.code or "").strip().upper()
+        if not code:
+            for _ in range(10):
+                from core.protocols.gift_link import generate_code
+                code = generate_code()
+                if gift_manager.get(code) is None:
+                    break
+        if gift_manager.get(code) is not None:
+            raise HTTPException(400, f"Код {code} уже существует")
+
+        # Проверяем подпись escrow-tx
+        tx = Tx(
+            sender=sender_addr,
+            recipient="GIFT-ESCROW",
+            amount=amount_raw,
+            message=f"Gift-Link {code}",
+            public_key=req.public_key,
+            signature=req.signature,
+            _payload_override=req.payload or "",
+        )
+        ok, msg = tx.is_valid()
+        if not ok:
+            raise HTTPException(400, f"Транзакция невалидна: {msg}")
+
+        # Проверяем баланс
+        bal = blockchain.get_balance(sender_addr)
+        if bal < amount_raw:
+            raise HTTPException(400, f"Недостаточно AIX: нужно {req.amount_aix}, есть {bal/config.SATOSHI:.4f}")
+
+        # Добавляем в mempool и майним блок
+        ok, msg = blockchain.mempool.add(tx)
+        if not ok:
+            raise HTTPException(400, f"Не добавлено в mempool: {msg}")
+        try:
+            blockchain.mine_block(sender_addr)
+        except Exception as e:
+            print(f"[gift_create_signed] mine error: {e}")
+
+        # Регистрируем подарок
+        from core.protocols.gift_link import GiftLink
+        import time as _t
+        now = _t.time()
+        link = GiftLink(
+            code=code,
+            sender=sender_addr,
+            amount=amount_raw,
+            created_at=now,
+            expires_at=now + req.ttl_days * 86400,
+            message=req.message,
+        )
+        gift_manager.links[code] = link
+        gift_manager._save()
+
+        event = make_gift_event(link)
+        peer_manager.broadcast_state_event(event)
+
+        return {
+            "status": "created",
+            "code": code,
+            "sender": sender_addr,
+            "amount_aix": amount_raw / config.SATOSHI,
+            "tx_id": tx.tx_id(),
+        }
 
     @app.post("/gift/create")
     def gift_create(req: GiftCreateRequest):
@@ -1480,11 +1572,37 @@ def create_app(port: int, data_file: str, self_url: str,
 
     @app.get("/swap/tokens")
     def swap_tokens():
-        return {"tokens": TOKEN_CATALOG}
+        merged = {}
+        # 1. Базовый TOKEN_CATALOG (name, emoji, decimals)
+        for sym, info in TOKEN_CATALOG.items():
+            merged[sym.upper()] = dict(info) if isinstance(info, dict) else {"name": str(info)}
+        # 2. token_registry (creator, total_supply, usd_price)
+        try:
+            for rec in token_registry.list_all():
+                d = rec.to_dict()
+                sym = (d.get("symbol") or "").upper()
+                if not sym:
+                    continue
+                if sym in merged:
+                    merged[sym] = {**merged[sym], **d}
+                else:
+                    merged[sym] = d
+        except Exception as e:
+            print(f"[swap/tokens] token_registry: {e}")
+        return {"tokens": merged}
 
     @app.get("/swap/stats")
     def swap_stats():
         return swap_manager.stats()
+
+    @app.get("/swap/history/{address}")
+    def swap_history(address: str, limit: int = 50):
+        addr = resolve_who(address)
+        try:
+            items = swap_manager.get_history(addr, limit=limit)
+            return {"address": addr, "count": len(items), "items": items}
+        except Exception as e:
+            return {"address": addr, "count": 0, "items": [], "error": str(e)}
 
     @app.get("/swap/balances/{address}")
     def swap_balances(address: str):
@@ -1524,8 +1642,18 @@ def create_app(port: int, data_file: str, self_url: str,
     @app.post("/swap/create_pool")
     def swap_create_pool(req: SwapCreatePoolRequest):
         creator_addr = resolve_who(req.creator)
-        amount_x = int(req.amount_x_aix * config.SATOSHI)
-        amount_y = int(req.amount_y_aix * config.SATOSHI)
+        
+        # АВТОСИНК AIX (как в swap_execute)
+        SWAP_DECIMALS = 10 ** 18
+        real_aix = blockchain.get_balance(creator_addr)
+        real_aix_swap = int(real_aix * SWAP_DECIMALS / config.SATOSHI)
+        swap_aix = swap_manager.get_balance(creator_addr, "AIX")
+        if real_aix_swap > swap_aix:
+            swap_manager.add_balance(creator_addr, "AIX", real_aix_swap - swap_aix)
+
+        amount_x = int(req.amount_x_aix * SWAP_DECIMALS)
+        amount_y = int(req.amount_y_aix * SWAP_DECIMALS)
+        
         ok, msg, pool = swap_manager.create_pool(
             token_x=req.token_x, token_y=req.token_y,
             amount_x=amount_x, amount_y=amount_y,
@@ -2046,9 +2174,12 @@ def create_app(port: int, data_file: str, self_url: str,
             }
         except Exception as e:
             import traceback
+            tb = traceback.format_exc()
+            print(f"[faucet/claim] ERROR: {e}\n{tb}")
             return {
+                "status": "error",
                 "error": str(e),
-                "traceback": traceback.format_exc(),
+                "traceback": tb,
                 "type": type(e).__name__,
             }
 
@@ -2077,6 +2208,7 @@ def create_app(port: int, data_file: str, self_url: str,
             message=req.message,
             public_key=req.public_key,
             signature=req.signature,
+            _payload_override=getattr(req, 'payload', '') or '',
         )
 
         ok, msg = tx.is_valid()
@@ -2194,6 +2326,82 @@ def create_app(port: int, data_file: str, self_url: str,
         return _err(-32601, f"Method not found: {method}")
 
 
+
+    @app.post("/swap/transfer")
+    def swap_transfer(req: dict):
+        """Перевод aCOIN токена между адресами (внутри swap-модуля)."""
+        from_addr = resolve_who(req.get("from", "") or "")
+        to_addr = resolve_who(req.get("to", "") or "")
+        token = (req.get("token", "") or "").upper()
+        try:
+            amount = float(req.get("amount", 0) or 0)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Неверная сумма")
+
+        if not from_addr or not to_addr:
+            raise HTTPException(400, "Не указаны адреса")
+        if not token:
+            raise HTTPException(400, "Не указан токен")
+        if amount <= 0:
+            raise HTTPException(400, "Сумма должна быть положительной")
+        if from_addr == to_addr:
+            raise HTTPException(400, "Нельзя переводить самому себе")
+
+        # Проверяем, что токен существует в TOKEN_CATALOG или token_registry
+        if token not in TOKEN_CATALOG and not token_registry.exists(token):
+            raise HTTPException(400, f"Токен {token} не зарегистрирован")
+
+        SWAP_DECIMALS = 10 ** 18
+        amount_raw = int(amount * SWAP_DECIMALS)
+
+        # Синхронизация AIX для обеих сторон (на случай, если не делалось)
+        for addr in (from_addr, to_addr):
+            try:
+                real_aix = blockchain.get_balance(addr)
+                real_aix_swap = int(real_aix * SWAP_DECIMALS / config.SATOSHI)
+                cur = swap_manager.get_balance(addr, "AIX")
+                if real_aix_swap > cur:
+                    swap_manager.add_balance(addr, "AIX", real_aix_swap - cur)
+            except Exception:
+                pass
+
+        from_bal = swap_manager.get_balance(from_addr, token)
+        if from_bal < amount_raw:
+            raise HTTPException(
+                400,
+                f"Недостаточно {token}: есть {from_bal / SWAP_DECIMALS:.4f}, "
+                f"нужно {amount:.4f}",
+            )
+
+        # Переводим
+        swap_manager.add_balance(from_addr, token, -amount_raw)
+        swap_manager.add_balance(to_addr, token, amount_raw)
+
+        import time as _t
+        tx_id = f"swap-{int(_t.time() * 1000)}"
+        swap_manager.add_history({
+            "type": "transfer",
+            "from": from_addr,
+            "to": to_addr,
+            "token": token,
+            "amount": amount,
+            "ts": _t.time(),
+            "tx_id": tx_id,
+        })
+
+        try:
+            swap_manager._save()
+        except Exception:
+            pass
+
+        return {
+            "status": "ok",
+            "token": token,
+            "amount": amount,
+            "from": from_addr,
+            "to": to_addr,
+            "tx_id": tx_id,
+        }
 
     # =========================================================================
     # TOKEN REGISTRY (??????? 2.0)
@@ -2334,6 +2542,353 @@ def create_app(port: int, data_file: str, self_url: str,
 
 
 
+
+    # =========================================================================
+    # MESSENGER — МЕГА-ИМПЕРАТОРСКИЙ
+    # =========================================================================
+
+    @app.post("/messages/send")
+    def messages_send(req: MessageSendRequest):
+        sender = resolve_who(req.sender)
+        recipient = resolve_who(req.recipient)
+        if not sender or not recipient:
+            raise HTTPException(400, "Не указаны адреса")
+# sender == recipient разрешено (Saved Messages)
+
+        try:
+            msg = messenger.send(
+                sender=sender,
+                recipient=recipient,
+                text=req.text,
+                reply_to=req.reply_to,
+                forwarded_from=req.forwarded_from,
+                media_id=req.media_id,
+                media_mime=req.media_mime,
+                media_size=req.media_size,
+            )
+        except Exception as e:
+            raise HTTPException(400, f"Не удалось отправить: {e}")
+
+        msg_dict = msg.to_dict() if hasattr(msg, "to_dict") else msg
+        # Broadcast через WebSocket получателю и отправителю
+        try:
+            ws_manager.send_to(recipient, {"type": "message", "message": msg_dict})
+            ws_manager.send_to(sender, {"type": "message", "message": msg_dict})
+        except Exception as e:
+            print(f"[messages/send] ws broadcast: {e}")
+
+        return {"status": "sent", "message": msg_dict}
+
+    @app.get("/messages/dialogs/{address}")
+    def messages_dialogs(address: str, limit: int = 50):
+        addr = resolve_who(address)
+        try:
+            dialogs = messenger.get_dialogs(addr)
+            # Обогащаем профилями AIX-ID
+            for d in dialogs:
+                peer = d.get("peer") or ""
+                if peer:
+                    profile = id_manager.get_by_address(peer)
+                    if profile:
+                        d["peer_name"] = profile.name
+                        d["peer_avatar"] = profile.avatar
+                        d["peer_display"] = profile.display_name
+            return {"count": len(dialogs), "dialogs": dialogs[:limit]}
+        except Exception as e:
+            return {"count": 0, "dialogs": [], "error": str(e)}
+
+    @app.get("/messages/chat/{addr1}/{addr2}")
+    def messages_chat(addr1: str, addr2: str, viewer: str = "", limit: int = 100):
+        a1 = resolve_who(addr1)
+        a2 = resolve_who(addr2)
+        v = resolve_who(viewer) if viewer else a1
+        try:
+            history = messenger.get_chat(a1, a2, viewer=v)
+            # Обогащаем именами
+            for m in history:
+                sender_addr = m.get("sender") or ""
+                profile = id_manager.get_by_address(sender_addr)
+                if profile:
+                    m["sender_name"] = profile.name
+                    m["sender_avatar"] = profile.avatar
+            return {"count": len(history), "messages": history[-limit:]}
+        except Exception as e:
+            return {"count": 0, "messages": [], "error": str(e)}
+
+    @app.post("/messages/read")
+    def messages_read(req: MessageReadRequest):
+        reader = resolve_who(req.reader)
+        try:
+            ok, msg = messenger.mark_read(req.message_id, reader)
+            if ok:
+                try:
+                    ws_manager.broadcast({"type": "read",
+                                          "message_id": req.message_id,
+                                          "reader": reader})
+                except Exception:
+                    pass
+                return {"status": "ok"}
+            return {"status": "error", "error": str(msg)}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    @app.post("/messages/react")
+    def messages_react(req: MessageReactRequest):
+        by = resolve_who(req.by)
+        try:
+            ok, result = messenger.add_reaction(req.message_id, req.emoji, by)
+            if not ok:
+                raise HTTPException(400, str(result))
+            msg_dict = result.to_dict() if hasattr(result, "to_dict") else result
+            try:
+                ws_manager.broadcast({"type": "reaction", "message": msg_dict})
+            except Exception:
+                pass
+            return {"status": "ok", "message": msg_dict}
+        except HTTPException:
+            raise
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    @app.post("/messages/unreact")
+    def messages_unreact(req: MessageReactRequest):
+        by = resolve_who(req.by)
+        try:
+            ok, result = messenger.remove_reaction(req.message_id, by)
+            if not ok:
+                raise HTTPException(400, str(result))
+            msg_dict = result.to_dict() if hasattr(result, "to_dict") else result
+            try:
+                ws_manager.broadcast({"type": "reaction", "message": msg_dict})
+            except Exception:
+                pass
+            return {"status": "ok", "message": msg_dict}
+        except HTTPException:
+            raise
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    @app.post("/messages/edit")
+    def messages_edit(req: MessageEditRequest):
+        by = resolve_who(req.by)
+        try:
+            ok, result = messenger.edit(req.message_id, req.new_text, by)
+            if not ok:
+                raise HTTPException(400, str(result))
+            msg_dict = result.to_dict() if hasattr(result, "to_dict") else result
+            try:
+                ws_manager.broadcast({"type": "edit", "message": msg_dict})
+            except Exception:
+                pass
+            return {"status": "ok", "message": msg_dict}
+        except HTTPException:
+            raise
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    @app.post("/messages/delete")
+    def messages_delete(req: MessageDeleteRequest):
+        by = resolve_who(req.by)
+        try:
+            if req.for_all:
+                ok, result = messenger.delete_for_all(req.message_id, by)
+            else:
+                ok, result = messenger.delete_for_me(req.message_id, by)
+            if not ok:
+                raise HTTPException(400, str(result))
+            try:
+                ws_manager.broadcast({"type": "delete", "message_id": req.message_id})
+            except Exception:
+                pass
+            return {"status": "deleted", "message_id": req.message_id}
+        except HTTPException:
+            raise
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    @app.post("/messages/pin")
+    def messages_pin(req: MessagePinRequest):
+        try:
+            ok, result = messenger.pin(req.message_id)
+            if not ok:
+                raise HTTPException(400, str(result))
+            try:
+                ws_manager.broadcast({"type": "pin", "message_id": req.message_id})
+            except Exception:
+                pass
+            return {"status": "pinned", "message_id": req.message_id}
+        except HTTPException:
+            raise
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    @app.post("/messages/unpin")
+    def messages_unpin(req: MessagePinRequest):
+        try:
+            ok, result = messenger.unpin(req.message_id)
+            if not ok:
+                raise HTTPException(400, str(result))
+            try:
+                ws_manager.broadcast({"type": "unpin", "message_id": req.message_id})
+            except Exception:
+                pass
+            return {"status": "unpinned", "message_id": req.message_id}
+        except HTTPException:
+            raise
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    # =========================================================================
+    # WEBSOCKET /ws/chat
+    # =========================================================================
+    @app.websocket("/ws/chat")
+    async def ws_chat(websocket: WebSocket, address: str = ""):
+        await websocket.accept()
+        try:
+            ws_manager.connect(address, websocket)
+            # Отправляем текущий онлайн
+            await websocket.send_json({
+                "type": "connected",
+                "online": ws_manager.online_list(),
+            })
+            # Broadcast presence
+            try:
+                ws_manager.broadcast({
+                    "type": "presence",
+                    "address": address,
+                    "online": True,
+                })
+            except Exception:
+                pass
+
+            while True:
+                try:
+                    data = await websocket.receive_json()
+                    msg_type = data.get("type")
+                    if msg_type == "typing":
+                        recipient = data.get("recipient", "")
+                        is_typing = data.get("is_typing", False)
+                        try:
+                            ws_manager.set_typing(address, recipient, is_typing)
+                            ws_manager.send_to(recipient, {
+                                "type": "typing",
+                                "from": address,
+                                "is_typing": is_typing,
+                            })
+                        except Exception:
+                            pass
+                    elif msg_type == "read":
+                        msg_id = data.get("message_id")
+                        if msg_id:
+                            try:
+                                messenger.mark_read(msg_id, address)
+                                ws_manager.broadcast({
+                                    "type": "read",
+                                    "message_id": msg_id,
+                                    "reader": address,
+                                })
+                            except Exception:
+                                pass
+                    elif msg_type == "ping":
+                        await websocket.send_json({"type": "pong"})
+                except Exception:
+                    break
+        except Exception as e:
+            print(f"[ws/chat] {e}")
+        finally:
+            try:
+                ws_manager.disconnect(address)
+                ws_manager.broadcast({
+                    "type": "presence",
+                    "address": address,
+                    "online": False,
+                })
+            except Exception:
+                pass
+
+
+    # =========================================================================
+    # PUBLIC API — для листинга (GeckoTerminal, CoinGecko, биржи)
+    # =========================================================================
+
+    @app.get("/public/stats")
+    def public_stats():
+        """Публичная статистика проекта — формат CoinGecko/CMC."""
+        try:
+            supply = blockchain.total_supply() if hasattr(blockchain, 'total_supply') else 0
+            burned = burn_manager.total_burned_aix() if hasattr(burn_manager, 'total_burned_aix') else 0
+            pools = swap_manager.list_pools()
+            liquidity_usd = sum(
+                (p.reserve_a + p.reserve_b) for p in pools
+            ) * 100 if pools else 0
+        except Exception:
+            supply, burned, liquidity_usd = 0, 0, 0
+
+        return {
+            "project": "AIX OS",
+            "symbol": "AIX",
+            "chain": "AIX",
+            "type": "native",
+            "consensus": "PoW (SHA-256)",
+            "height": blockchain.height(),
+            "total_supply_aix": supply / config.SATOSHI if supply else 0,
+            "total_burned_aix": burned / config.SATOSHI if burned else 0,
+            "price_usd": 100.0,
+            "market_cap_usd": (supply / config.SATOSHI) * 100 if supply else 0,
+            "liquidity_usd": liquidity_usd,
+            "pools_count": len(pools) if pools else 0,
+            "pools": [
+                {
+                    "id": p.id,
+                    "base": p.token_a,
+                    "quote": p.token_b,
+                    "reserve_a": p.reserve_a / 1e18,
+                    "reserve_b": p.reserve_b / 1e18,
+                }
+                for p in (pools or [])
+            ],
+            "wallets_count": len(id_manager.list_all()) if hasattr(id_manager, 'list_all') else 0,
+            "timestamp": time.time(),
+            "explorer": self_url,
+            "github": "https://github.com/aix-os/aix-os",
+        }
+
+    @app.get("/public/vesting")
+    def public_vesting():
+        """Foundation Reserve (AIX-DEV vesting) — публично проверяемо."""
+        return vesting.get_vesting_status()
+
+    @app.get("/public/health")
+    def public_health():
+        """Health check для мониторинга биржами."""
+        return {
+            "status": "ok",
+            "height": blockchain.height(),
+            "chain_valid": True,
+            "timestamp": time.time(),
+        }
+
+    @app.get("/public/markets")
+    def public_markets():
+        """Список рынков (пулов) — для CoinGecko ticker API."""
+        try:
+            pools = swap_manager.list_pools()
+            return {
+                "markets": [
+                    {
+                        "name": p.id,
+                        "base": p.token_a,
+                        "quote": p.token_b,
+                        "reserve_base": p.reserve_a / 1e18,
+                        "reserve_quote": p.reserve_b / 1e18,
+                        "price": p.price_a_in_b() if hasattr(p, 'price_a_in_b') else 0,
+                        "fee_percent": p.fee_percent,
+                    }
+                    for p in (pools or [])
+                ]
+            }
+        except Exception as e:
+            return {"markets": [], "error": str(e)}
 
     return app
 

@@ -70,13 +70,19 @@ class MdnsDiscovery:
             addresses=[socket.inet_aton(ip)],
             port=self.port,
             properties={"version": "0.1.0"},
-            server=f"{hostname}.local.",
+            server=f"{hostname}-{self.port}.local.",
         )
-        await self.aiozc.async_register_service(self.service_info)
+        try:
+            await self.aiozc.async_register_service(self.service_info)
+        except Exception as e:
+            print(f"[mDNS] register failed: {e}")
         print(f"[mDNS] 📢 Объявляю себя в сети: {ip}:{self.port}")
         
         listener = AixNodeListener(self.aiozc, self.peer_manager, self.port)
-        self.browser = AsyncServiceBrowser(self.aiozc.zeroconf, "_aix-node._tcp.local.", handlers=[listener])
+        try:
+            self.browser = AsyncServiceBrowser(self.aiozc.zeroconf, "_aix-node._tcp.local.", handlers=[listener])
+        except Exception as e:
+            print(f"[mDNS] browser failed: {e}")
         print("[mDNS] 👂 Слушаю локальную сеть...")
 
     async def stop(self):

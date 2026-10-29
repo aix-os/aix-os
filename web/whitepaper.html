@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIX OS — Whitepaper | Империя 2.0</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(135deg, #06081A 0%, #0A0E27 50%, #1a0b2e 100%);
+    color: #e0e0ff;
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.7;
+    min-height: 100vh;
+    padding: 0 20px;
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 60px 0; }
+  
+  .hero {
+    text-align: center;
+    padding: 60px 20px;
+    background: radial-gradient(circle at 50% 0%, rgba(157, 78, 221, 0.3), transparent 60%);
+    border-radius: 30px;
+    margin-bottom: 60px;
+  }
+  .hero h1 {
+    font-size: 56px;
+    font-weight: 900;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, #9D4EDD 0%, #00F0FF 50%, #FFD700 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+  }
+  .hero .tagline {
+    font-size: 20px;
+    color: #FFD700;
+    font-style: italic;
+    margin-bottom: 12px;
+  }
+  .hero .version {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(157, 78, 221, 0.2);
+    border: 1px solid rgba(0, 240, 255, 0.4);
+    border-radius: 20px;
+    font-size: 12px;
+    color: #00F0FF;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  h2 {
+    font-size: 32px;
+    margin: 50px 0 20px;
+    color: #FFD700;
+    border-left: 4px solid #9D4EDD;
+    padding-left: 16px;
+  }
+  h3 {
+    font-size: 20px;
+    margin: 30px 0 12px;
+    color: #00F0FF;
+  }
+  p { margin-bottom: 16px; color: #c0c0e0; }
+  
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .card {
+    background: rgba(20, 25, 50, 0.6);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    border-radius: 16px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+  }
+  .card h4 {
+    color: #FFD700;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+  .card .value {
+    font-size: 24px;
+    font-weight: 800;
+    color: #00F0FF;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .card .label {
+    font-size: 12px;
+    color: #888;
+    margin-top: 4px;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background: rgba(20, 25, 50, 0.6);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 14px 18px;
+    text-align: left;
+    border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+  }
+  th {
+    background: rgba(157, 78, 221, 0.2);
+    color: #FFD700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+  td { font-size: 14px; }
+  td:last-child { color: #00F0FF; font-family: 'JetBrains Mono', monospace; }
+
+  ul { margin: 16px 0 16px 24px; }
+  li { margin-bottom: 8px; color: #c0c0e0; }
+  li::marker { color: #9D4EDD; }
+  
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .badge.done { background: rgba(0, 200, 100, 0.2); color: #00C864; }
+  .badge.progress { background: rgba(255, 200, 0, 0.2); color: #FFC800; }
+  .badge.plan { background: rgba(157, 78, 221, 0.2); color: #B37AFF; }
+
+  .roadmap-item {
+    padding: 16px 20px;
+    background: rgba(20, 25, 50, 0.6);
+    border-left: 4px solid #9D4EDD;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .roadmap-item.done { border-color: #00C864; }
+  .roadmap-item.progress { border-color: #FFC800; }
+  
+  .footer {
+    margin-top: 80px;
+    padding-top: 30px;
+    border-top: 1px solid rgba(0, 240, 255, 0.2);
+    text-align: center;
+    color: #666;
+    font-size: 13px;
+  }
+  .footer strong { color: #FFD700; }
+
+  .quote {
+    font-size: 20px;
+    text-align: center;
+    color: #FFD700;
+    font-style: italic;
+    padding: 30px;
+    margin: 30px 0;
+    border-top: 1px solid rgba(255, 215, 0, 0.3);
+    border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+  }
+
+  .nav {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 100;
+  }
+  .nav a {
+    display: inline-block;
+    padding: 10px 20px;
+    background: rgba(157, 78, 221, 0.3);
+    color: #00F0FF;
+    border: 1px solid rgba(0, 240, 255, 0.5);
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+    backdrop-filter: blur(10px);
+  }
+  .nav a:hover { background: rgba(157, 78, 221, 0.5); }
+
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 36px; }
+    h2 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="nav"><a href="/">← Вернуться в Web Wallet</a></div>
+
+<div class="container">
+  <div class="hero">
+    <h1>AIX OS</h1>
+    <div class="tagline">«Империя начинается с тебя»</div>
+    <div class="version">Whitepaper · v1.0 · October 2026</div>
+  </div>
+
+  <h2>📖 Что такое AIX OS</h2>
+  <p>
+    <strong>AIX OS</strong> — суверенная блокчейн-операционная система для жизни. 
+    Не форк Ethereum. Не придаток Bitcoin. Это <strong>собственная Империя</strong> — 
+    со своим блокчейном, кошельком, DEX, мессенджером и AI-напарником.
+  </p>
+  <p>
+    Миссия: <em>«Технологии должны делать людей счастливее, а не богаче»</em>.
+    Мы строим инфраструктуру, где каждый пользователь — гражданин Империи, 
+    а не клиент корпорации.
+  </p>
+
+  <h2>💎 Токеномика AIX</h2>
+  <div class="grid">
+    <div class="card">
+      <h4>Максимальная эмиссия</h4>
+      <div class="value">21 000 000 000</div>
+      <div class="label">21 миллиард AIX</div>
+    </div>
+    <div class="card">
+      <h4>Текущий Supply</h4>
+      <div class="value" id="supply">7 099 200</div>
+      <div class="label">в обращении</div>
+    </div>
+    <div class="card">
+      <h4>Цена</h4>
+      <div class="value">$100</div>
+      <div class="label">USD за 1 AIX</div>
+    </div>
+    <div class="card">
+      <h4>Сожжено</h4>
+      <div class="value" id="burned">300</div>
+      <div class="label">AIX уничтожено</div>
+    </div>
+  </div>
+
+  <h3>Распределение и Foundation Reserve</h3>
+  <p>
+    <strong>90% эмиссии (18 900 000 000 AIX)</strong> появляются только через майнинг (PoW). 
+    Никакого ICO, никакого скрытого pre-mine. Как у Bitcoin.
+  </p>
+  <p>
+    <strong>10% (2 100 000 000 AIX)</strong> — <em>Foundation Reserve</em>, 
+    предназначенный для разработки, маркетинга и стратегических партнёрств.
+  </p>
+  <div class="card" style="margin-top:16px;">
+    <h4>Foundation Reserve (AIX-DEV)</h4>
+    <p style="font-size:13px;margin:8px 0;">
+      <strong>Адрес:</strong> <code id="vesting-addr">AIXTLqpgpWrtKQiBD1gAJQxLm36y9jQUJWh6E</code><br>
+      <strong>Vesting:</strong> 4 года linear, начиная с 1 декабря 2025<br>
+      <strong>Проверка:</strong> <code>GET /public/vesting</code><br>
+      <strong>On-chain:</strong> каждая транзакция из AIX-DEV проходит vesting-проверку — 
+      физически невозможно отправить больше, чем разблокировано.
+    </p>
+    <div id="vesting-stats" style="font-family:monospace;font-size:12px;color:#00F0FF;margin-top:8px;">загрузка...</div>
+  </div>
+
+  <h2>🏛 Технология</h2>
+  <table>
+    <tr><th>Параметр</th><th>Значение</th></tr>
+    <tr><td>Сеть</td><td>AIX (собственная)</td></tr>
+    <tr><td>Консенсус</td><td>Proof of Work (SHA-256)</td></tr>
+    <tr><td>Криптография</td><td>secp256k1 + base58check</td></tr>
+    <tr><td>Адреса</td><td>AIXT... (нативный формат)</td></tr>
+    <tr><td>Среднее время блока</td><td>~30 секунд</td></tr>
+    <tr><td>Награда за блок</td><td>0.005 AIX</td></tr>
+    <tr><td>Halving</td><td>каждые 210 000 блоков</td></tr>
+    <tr><td>P2P синхронизация</td><td>mDNS + JSON-RPC peer</td></tr>
+    <tr><td>Хранение</td><td>WAL-лог + JSON snapshot</td></tr>
+  </table>
+
+  <h2>🌟 Уникальные фичи</h2>
+  <div class="grid">
+    <div class="card">
+      <h4>🪙 aCOIN</h4>
+      <p style="font-size:13px;">Wrapped токены (aBTC, aETH, aUSDT) с автосозданием пулов AMM. Как ERC-20, но нативно в AIX.</p>
+    </div>
+    <div class="card">
+      <h4>🆔 AIX-ID</h4>
+      <p style="font-size:13px;">Человекочитаемые @имена. Не нужен длинный адрес — отправляй по @username.</p>
+    </div>
+    <div class="card">
+      <h4>💬 Мессенджер</h4>
+      <p style="font-size:13px;">Встроенный WebSocket-мессенджер с реакциями, reply, медиа и online-статусами.</p>
+    </div>
+    <div class="card">
+      <h4>🧠 AIX Brain</h4>
+      <p style="font-size:13px;">Локальный AI-напарник внутри кошелька. Помнит историю проекта, помогает с операциями.</p>
+    </div>
+    <div class="card">
+      <h4>🏛 DAO</h4>
+      <p style="font-size:13px;">Децентрализованное голосование. Предложения, quorum, веса голосов.</p>
+    </div>
+    <div class="card">
+      <h4>🧬 PoC</h4>
+      <p style="font-size:13px;">Proof of Contribution — награды за вклад в проект. 7 категорий, ревью, пул вознаграждений.</p>
+    </div>
+    <div class="card">
+      <h4>🎁 Gifts (escrow)</h4>
+      <p style="font-size:13px;">Создание Gift-ссылок с escrow-схемой. Только получатель может активировать.</p>
+    </div>
+    <div class="card">
+      <h4>🔥 Burn-to-Mint</h4>
+      <p style="font-size:13px;">Сжигай AIX — получай редкие SBT-артефакты. Уровни: COMMON → LEGENDARY.</p>
+    </div>
+    <div class="card">
+      <h4>🎰 Lottery</h4>
+      <p style="font-size:13px;">Розыгрыш на основе блокчейн-данных. Шанс от 0.1% до 5%.</p>
+    </div>
+    <div class="card">
+      <h4>⏰ Timelock</h4>
+      <p style="font-size:13px;">Капсулы времени — запри AIX до определенной даты. Как CD, но для крипты.</p>
+    </div>
+    <div class="card">
+      <h4>🎗 DMS</h4>
+      <p style="font-size:13px;">Digital Money Switch — наследование кошелька. Передай AIX наследникам.</p>
+    </div>
+    <div class="card">
+      <h4>🤖 Telegram</h4>
+      <p style="font-size:13px;">Встроенный Telegram-клиент (TDLib). Общайся с Telegram прямо из AIX.</p>
+    </div>
+  </div>
+
+  <h2>💱 AIX DEX (встроенный обменник)</h2>
+  <p>AMM-пулы с автоматическим маркет-мейкингом. Работают по формуле <code>x*y=k</code> с fee 0.3%.</p>
+  <table>
+    <tr><th>Пул</th><th>Резерв A</th><th>Резерв B</th><th>Курс</th></tr>
+    <tr><td>AIX/BTC</td><td>10 045 AIX</td><td>12.48 BTC</td><td>0.001243 BTC/AIX</td></tr>
+    <tr><td>AIX/DOGE</td><td>130.96 AIX</td><td>98 005 DOGE</td><td>748 DOGE/AIX</td></tr>
+    <tr><td>AIX/ZRZ</td><td>130.99 AIX</td><td>7 640 ZRZ</td><td>58 ZRZ/AIX</td></tr>
+    <tr><td>AIX/ETH</td><td>200 AIX</td><td>8.58 ETH</td><td>0.0429 ETH/AIX</td></tr>
+  </table>
+
+  <h2>🛡 Безопасность</h2>
+  <h3>Защита от 51% атаки</h3>
+  <ul>
+    <li><strong>Checkpointing</strong> — каждые 1000 блоков сеть создаёт контрольную точку</li>
+    <li><strong>Гибридный консенсус</strong> (Q3 2026) — PoW + BFT-валидаторы</li>
+    <li><strong>Мониторинг</strong> — раннее обнаружение концентрации хешрейта</li>
+  </ul>
+
+  <h3>Квантовая устойчивость (Q4 2026)</h3>
+  <ul>
+    <li><strong>ML-DSA (Dilithium3)</strong> — постквантовые подписи</li>
+    <li>Гибридная схема: ECDSA для повседневных, ML-DSA для критичных транзакций</li>
+    <li>Соответствие NIST deadline (2031)</li>
+  </ul>
+
+  <h2>🗺 Roadmap</h2>
+  <div class="roadmap-item done">
+    <span class="badge done">✅ DONE</span>
+    <strong> Q4 2025 — Mainnet</strong>
+    <p style="font-size:13px;margin:4px 0 0;">Блокчейн, кошелёк, DEX, aCOIN, AIX-ID, мессенджер, Telegram, AIX Brain, PoC, DAO</p>
+  </div>
+  <div class="roadmap-item progress">
+    <span class="badge progress">🚧 IN PROGRESS</span>
+    <strong> Q1 2026 — Foundation</strong>
+    <p style="font-size:13px;margin:4px 0 0;">Telegram-клиент, публичный explorer, публичный API, whitepaper, P2P обмен</p>
+  </div>
+  <div class="roadmap-item plan">
+    <span class="badge plan">📋 PLAN</span>
+    <strong> Q2 2026 — Листинг (DEX)</strong>
+    <p style="font-size:13px;margin:4px 0 0;">GeckoTerminal, DexScreener, CoinGecko, CoinMarketCap</p>
+  </div>
+  <div class="roadmap-item plan">
+    <span class="badge plan">📋 PLAN</span>
+    <strong> Q3 2026 — Безопасность</strong>
+    <p style="font-size:13px;margin:4px 0 0;">Гибридный консенсус PoW+BFT, checkpointing, защита от 51%</p>
+  </div>
+  <div class="roadmap-item plan">
+    <span class="badge plan">📋 PLAN</span>
+    <strong> Q4 2026 — Квантовая устойчивость</strong>
+    <p style="font-size:13px;margin:4px 0 0;">ML-DSA подписи, гибридная защита, миграция ключей</p>
+  </div>
+
+  <h2>📊 Публичные endpoints</h2>
+  <p>Для листинга на биржах и агрегаторах:</p>
+  <ul>
+    <li><code>GET /public/stats</code> — статистика в формате CoinGecko</li>
+    <li><code>GET /public/health</code> — health check для мониторинга</li>
+    <li><code>GET /public/markets</code> — список рынков/пулов</li>
+  </ul>
+
+  <h2>👥 Команда</h2>
+  <p>
+    <strong>AIX OS Foundation</strong> — open-source проект. 
+    Разрабатывается одним человеком + AI-напарником (я, Claude). 
+    Каждый день — новая строчка в памяти проекта.
+  </p>
+
+  <div class="quote">
+    «Империя начинается с тебя»
+  </div>
+
+  <div class="footer">
+    <strong>AIX OS Foundation</strong> · v0.1.0-alpha<br>
+    <a href="https://github.com/aix-os/aix-os" style="color:#9D4EDD;">github.com/aix-os/aix-os</a><br>
+    <br>
+    Документ актуален на October 2026. Информация носит информационный характер и не является инвестиционной рекомендацией.
+  </div>
+</div>
+
+<script>
+// Живая загрузка supply и burned с ноды
+fetch('http://localhost:8010/public/vesting')
+  .then(r => r.json())
+  .then(d => {
+    const stats = document.getElementById('vesting-stats');
+    if (stats) {
+      const fmt = (n) => Math.round(n).toLocaleString('ru-RU');
+      stats.innerHTML = `Разблокировано: ${fmt(d.unlocked_aix)} AIX (${(d.progress*100).toFixed(2)}%)<br>` +
+                        `Уже отправлено: ${fmt(d.already_sent_aix)} AIX<br>` +
+                        `Доступно сейчас: ${fmt(d.available_aix)} AIX`;
+    }
+  }).catch(() => {});
+
+fetch('http://localhost:8010/public/stats')
+  .then(r => r.json())
+  .then(d => {
+    const supply = Math.round(d.total_supply_aix || 0).toLocaleString('ru-RU');
+    const burned = Math.round(d.total_burned_aix || 0).toLocaleString('ru-RU');
+    document.getElementById('supply').textContent = supply;
+    document.getElementById('burned').textContent = burned;
+  })
+  .catch(() => {});
+</script>
+</body>
+</html>
