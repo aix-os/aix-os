@@ -184,3 +184,14 @@
 - Vesting start: 1764547200 (1 декабря 2025, UTC)
 - Vesting duration: 4 * 365 * 86400 = 126 144 000 сек
 
+
+
+### ✅ TDLib РЕШЁН (2026-10-29)
+- APK 62.6 MB, только lib/arm64-v8a/, libtdjson.so=20 365 792 байт (aarch64, ELF 0xb7)
+- Резолвер chain: UserDefinePrebuiltResolver (null) → **LocalPrebuiltResolver (нашёл .prebuilt/android-arm64/libtdjson.so)** → готово
+- Сделано: распакован tdlib-arm64-v1.8.65.tar.gz → mobile/flutter_app/tdlib-arm64-v1.8.65/ → скопирован в .prebuilt/android-arm64/ → удалён старый hooks_runner/shared/tdlib2 (x86_64 31 MB)
+- Сборка БЕЗ clean: flutter build apk --release --target-platform=android-arm64 --no-tree-shake-icons (3.8 мин)
+- native_prebuilt-0.3.2 локально lock.yaml НЕ читает, только CI. Поэтому .prebuilt/ — единственный надёжный путь
+- Повтор после pub get: если .prebuilt исчез — распаковать архив заново (архив в .gitignore)
+- Успех в логе: [tdlib2] INFO: Using prebuilt tdjson for android-arm64 (from local .prebuilt)
+
